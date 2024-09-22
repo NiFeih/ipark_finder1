@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
 import 'reset_password.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-
-  // Set to your preferred locale code
 
 class ForgotPasswordPage extends StatefulWidget {
   @override
@@ -19,27 +16,30 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   late Timer emailVerificationTimer;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-
   // Function to send the password reset email and wait for verification
   Future<void> sendPasswordResetEmail(String email) async {
     try {
-      // Check if email exists by fetching sign-in methods
-      await _auth.fetchSignInMethodsForEmail(email).then((signInMethods) {
-        if (signInMethods.isEmpty) {
-          throw FirebaseAuthException(code: 'user-not-found');
-        }
-      });
+      // Check if email is registered with email/password sign-in method
+      List<String> signInMethods = await _auth.fetchSignInMethodsForEmail(email);
 
-      // Send password reset email
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-      setState(() {
-        isEmailSent = true; // Change UI to reflect email has been sent
-        isWaitingForVerification = true; // Start waiting for verification
-      });
-
-      // Check if email is verified
-      await _checkEmailVerified(_auth.currentUser!);
-
+      if (signInMethods.contains('password')) {
+        // Email is valid and registered using email/password, proceed with password reset
+        await _auth.sendPasswordResetEmail(email: email);
+        setState(() {
+          isEmailSent = true; // Change UI to reflect email has been sent
+          isWaitingForVerification = true; // Start waiting for verification
+        });
+        // Optional: Call email verification check
+        await _checkEmailVerified(_auth.currentUser!);
+      } else {
+        // If no sign-in methods or not using password authentication
+        setState(() {
+          isEmailValid = false; // Mark email as invalid
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("No account found with this email. Please check and try again.")),
+        );
+      }
     } on FirebaseAuthException catch (e) {
       if (e.code == 'user-not-found') {
         setState(() {
@@ -135,8 +135,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           children: [
             Text(
               "Forgot Password",
-              style: TextStyle(
-                  fontSize: 24, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 20),
             TextField(
