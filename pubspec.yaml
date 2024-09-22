@@ -28,6 +28,7 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  email_otp: ^3.0.2
   flutter:
     sdk: flutter
   firebase_core: ^3.4.0 # Add this line for Firebase Core (you can check for the latest version on pub.dev)

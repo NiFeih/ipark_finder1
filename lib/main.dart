@@ -1,5 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'login_page.dart'; // Ensure login.dart is correctly imported
 
 void main() async {
@@ -13,6 +14,8 @@ void main() async {
       storageBucket: 'iparkfinder-d049e.appspot.com',
     ),
   );
+  // Set locale for Firebase Authentication
+  FirebaseAuth.instance.setLanguageCode('en');
   runApp(MyApp());
 }
 
