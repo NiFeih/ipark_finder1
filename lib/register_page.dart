@@ -3,6 +3,23 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'login_page.dart';
 import 'dart:async'; // For Timer
+import 'package:flutter/services.dart'; // For TextInputFormatter
+
+// Custom TextInputFormatter to remove spaces and convert to uppercase
+class CarPlateInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    // Remove spaces and convert to uppercase
+    String newText = newValue.text.replaceAll(' ', '').toUpperCase();
+    return TextEditingValue(
+      text: newText,
+      selection: newValue.selection.copyWith(
+        baseOffset: newText.length,
+        extentOffset: newText.length,
+      ),
+    );
+  }
+}
 
 class RegisterPage extends StatefulWidget {
   @override
@@ -115,12 +132,18 @@ class _RegisterPageState extends State<RegisterPage> {
         });
 
         // Save user details to Firestore after email is verified
-        await FirebaseFirestore.instance.collection('Users').doc(user.uid).set({
+        DocumentReference userRef = FirebaseFirestore.instance.collection('Users').doc(user.uid);
+        await userRef.set({
           'name': name,
           'contact': contact,
-          'carPlate': carPlate,
           'email': email,
           'uid': user.uid,
+        });
+
+        // Add the car plate number to the CarPlateNumbers collection (top-level collection)
+        await FirebaseFirestore.instance.collection('CarPlateNumbers').add({
+          'plateNumber': carPlate,
+          'userId': user.uid, // Link the car plate to the user
         });
 
         // Show success dialog and navigate to login page
@@ -253,6 +276,16 @@ class _RegisterPageState extends State<RegisterPage> {
         prefixIcon: Icon(icon),
       ),
       keyboardType: keyboardType,
+      inputFormatters: labelText == "Contact Number"
+          ? [
+        FilteringTextInputFormatter.allow(RegExp(r'[0-9]')), // Allow only numbers for contact number
+        FilteringTextInputFormatter.digitsOnly,
+      ]
+          : labelText == "Car Plate Number"
+          ? [
+        CarPlateInputFormatter(), // Apply the custom formatter to car plate number
+      ]
+          : [],
     );
   }
 

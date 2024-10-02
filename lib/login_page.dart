@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
 import 'package:firebase_core/firebase_core.dart'; // Import Firebase Core
 import 'register_terms_conditions.dart';
 import 'forgot_password.dart';
+import 'home_page.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -63,21 +64,9 @@ class _LoginPageState extends State<LoginPage> {
       Navigator.of(context).pop();
 
       if (success) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text("Success"),
-            content: Text("Login Successful!"),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  // Navigate to next page, if needed
-                },
-                child: Text("OK"),
-              ),
-            ],
-          ),
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => HomePage()), // Navigate to HomePage
         );
       } else {
         showDialog(
@@ -98,6 +87,7 @@ class _LoginPageState extends State<LoginPage> {
       }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
