@@ -3,6 +3,7 @@ import 'account_page.dart';
 import 'about_page.dart';
 import 'contact_us_page.dart';
 import 'change_password_page.dart';
+import 'car_plate_number_page.dart'; // Import the car plate number page
 
 class SettingsPage extends StatelessWidget {
   @override
@@ -15,12 +16,12 @@ class SettingsPage extends StatelessWidget {
       body: ListView(
         children: <Widget>[
           ListTile(
-            title: Text("Account"),
+            title: Text("Profile"),
             trailing: Icon(Icons.chevron_right),
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => AccountPage()),
+                MaterialPageRoute(builder: (context) => ProfilePage()),
               );
             },
           ),
@@ -32,6 +33,17 @@ class SettingsPage extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => ChangePasswordPage()),
+              );
+            },
+          ),
+          Divider(),
+          ListTile(
+            title: Text("Car Plate Number"),
+            trailing: Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => CarPlateNumberPage()),
               );
             },
           ),
@@ -57,6 +69,7 @@ class SettingsPage extends StatelessWidget {
               );
             },
           ),
+
           Divider(),
           ListTile(
             title: Text("Log Out"),

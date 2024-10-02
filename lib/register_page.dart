@@ -259,7 +259,7 @@ class _RegisterPageState extends State<RegisterPage> {
           CircularProgressIndicator(),
           SizedBox(height: 16.0),
           Text(
-            "Waiting for email verification...",
+            "The verification link has been sent to your student email. Please verify your email.",
             style: TextStyle(fontSize: 18),
           ),
         ],
