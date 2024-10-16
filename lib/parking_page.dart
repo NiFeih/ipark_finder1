@@ -39,14 +39,40 @@ class _ParkingPageState extends State<ParkingPage> {
     });
   }
 
-  // Show a dialog box displaying the nearest parking lot
+  // Show a dialog box displaying the tapped parking lot
   void _showParkingLotDialog(String parkingLotName) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
+          title: Text("Parking Lot"),
+          content: Text("You tapped on: $parkingLotName"),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+              },
+              child: Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Show a dialog box displaying the nearest parking lot
+  void _showNearestParkingLotDialog(String entranceName) {
+    String? nearestParkingLot = ParkingData.findShortestPath(entranceName);
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
           title: Text("Nearest Parking Lot"),
-          content: Text("The nearest parking lot is: $parkingLotName"),
+          content: Text(
+            nearestParkingLot != null
+                ? "The nearest parking lot to $entranceName is: $nearestParkingLot"
+                : "No nearby parking lot found.",
+          ),
           actions: [
             TextButton(
               onPressed: () {
@@ -82,13 +108,7 @@ class _ParkingPageState extends State<ParkingPage> {
 
   // Handle tap on entrance markers to display nearest parking lot
   void _onEntranceTapped(String entranceName) {
-    // Check if nearest parking lot is null and handle appropriately
-    String? nearestParkingLot = ParkingData.findNearestParkingLot(entranceName);
-    if (nearestParkingLot != null) {
-      _showParkingLotDialog(nearestParkingLot);
-    } else {
-      _showParkingLotDialog("No nearby parking lot found.");
-    }
+    _showNearestParkingLotDialog(entranceName);
   }
 
   @override
@@ -107,16 +127,23 @@ class _ParkingPageState extends State<ParkingPage> {
             ),
             mapType: MapType.normal,
             onMapCreated: _onMapCreated,
-            polygons: ParkingData.parkingLotPolygons.toSet(),
+            polygons: ParkingData.parkingLotPolygons.map((polygon) {
+              return polygon.copyWith(
+                consumeTapEventsParam: true, // Enable tapping on the polygon
+                onTapParam: () {
+                  _showParkingLotDialog(polygon.polygonId.value); // Show parking lot dialog
+                },
+              );
+            }).toSet(),
             polylines: ParkingData.pathPolyline != null
                 ? {ParkingData.pathPolyline!}
                 : {},
             markers: ParkingData.entranceMarkers.map((marker) {
               return marker.copyWith(
                 onTapParam: () {
-                  // Check if markerId and markerId.value are non-null
-                  if (marker.markerId != null && marker.markerId.value != null) {
-                    _onEntranceTapped(marker.markerId.value); // Trigger dialog on tap
+                  final markerIdValue = marker.markerId?.value;
+                  if (markerIdValue != null) {
+                    _onEntranceTapped(markerIdValue); // Trigger dialog on tap for entrance
                   } else {
                     print("Marker ID or its value is null.");
                   }
