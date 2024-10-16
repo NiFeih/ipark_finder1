@@ -28,13 +28,17 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
-  email_otp: ^3.0.2
   flutter:
     sdk: flutter
   firebase_core: ^3.4.0 # Add this line for Firebase Core (you can check for the latest version on pub.dev)
   firebase_auth: ^5.2.0   # Add other Firebase services you need
   cloud_firestore: ^5.4.0
   flutter_slidable: ^3.1.1
+  flutter_map: ^4.0.0  # Package for map handling
+  latlong2: ^0.8.1      # For LatLng coordinates
+  google_maps_flutter: ^2.1.0
+  http: ^0.13.4  # Check for the latest version
+  geojson: ^1.0.0  # Check for the latest version
 
 
   # The following adds the Cupertino Icons font to your application.
@@ -64,10 +68,14 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
-
+  assets:
+    - assets/CroppedFloorPlanLevel2.jpg  # Add your custom PNG map image
+    - assets/Cropped_Floor_plan_Level_2.jpg
+    - assets/parkinglots.geojson
+    - assets/path.geojson
+    - assets/path_new.geojson
+    - assets/entrance.geojson
+    - assets/images/custom_marker.png
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
 

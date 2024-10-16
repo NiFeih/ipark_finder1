@@ -32,7 +32,7 @@ class _AddCarPlateNumberPageState extends State<AddCarPlateNumberPage> {
       carPlateCollection.add({
         'plateNumber': carPlateNumber,
         'userId': userId,
-        'lock':false,
+        'lock': false,
       }).then((value) {
         // Show a snack bar after the user has been redirected to the CarPlateNumberPage
         ScaffoldMessenger.of(context).showSnackBar(
@@ -67,6 +67,7 @@ class _AddCarPlateNumberPageState extends State<AddCarPlateNumberPage> {
               // Adding input formatters to remove spaces and ensure uppercase
               inputFormatters: [
                 UpperCaseTextFormatter(), // Custom formatter to enforce uppercase and remove spaces
+                FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')), // Allow both uppercase and lowercase letters and numbers
               ],
               decoration: InputDecoration(
                 labelText: "Enter Car Plate Number",

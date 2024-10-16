@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
 import 'account_page.dart';
 import 'about_page.dart';
 import 'contact_us_page.dart';
 import 'change_password_page.dart';
 import 'car_plate_number_page.dart'; // Import the car plate number page
+import 'login_page.dart'; // Import your LoginPage
 
 class SettingsPage extends StatelessWidget {
   @override
@@ -69,18 +71,53 @@ class SettingsPage extends StatelessWidget {
               );
             },
           ),
-
           Divider(),
           ListTile(
             title: Text("Log Out"),
             trailing: Icon(Icons.chevron_right),
             onTap: () {
-              // Action will be added later
+              _confirmLogout(context); // Call the logout confirmation
             },
           ),
           Divider(),
         ],
       ),
+    );
+  }
+
+  void _confirmLogout(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Log Out"),
+          content: Text("Are you sure you want to log out?"),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+              },
+              child: Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () {
+                _logout(context); // Call the logout function
+                Navigator.of(context).pop(); // Close the dialog
+              },
+              child: Text("Log Out"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _logout(BuildContext context) async {
+    await FirebaseAuth.instance.signOut();
+    // Navigate back to the login page
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => LoginPage()), // Change to your LoginPage widget
     );
   }
 }

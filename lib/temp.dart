@@ -1,178 +1,133 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:async';
-import 'reset_password.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:ui' as ui;
+import 'package:flutter/services.dart';
 
-class ForgotPasswordPage extends StatefulWidget {
-  @override
-  _ForgotPasswordPageState createState() => _ForgotPasswordPageState();
-}
 
-class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
-  final TextEditingController emailController = TextEditingController();
-  bool isEmailSent = false;
-  bool isEmailValid = true;
-  bool isWaitingForVerification = false;
-  late Timer emailVerificationTimer;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+class ParkingData {
+  static List<Polygon> parkingLotPolygons = [];
+  static Polyline? pathPolyline;
+  static List<LatLng> pathCoordinates = [];
+  static List<Marker> entranceMarkers = [];
 
-  // Function to send the email verification and wait for verification
-  Future<void> sendEmailVerification(String email) async {
-    try {
-      // Check if email exists by fetching sign-in methods
-      await _auth.fetchSignInMethodsForEmail(email).then((signInMethods) async {
-        if (signInMethods.isEmpty) {
-          throw FirebaseAuthException(code: 'user-not-found');
-        }
+  // Load and parse the GeoJSON data, passing in the callback for showing a dialog
+  static Future<void> loadGeoJson(Function(String) showDialogCallback) async {
+    // Load GeoJSON for parking lots and path
+    String parkingGeoJson = await rootBundle.loadString('assets/parkinglots.geojson');
+    String pathGeoJson = await rootBundle.loadString('assets/path_new.geojson');
+    String entranceGeoJson = await rootBundle.loadString('assets/entrance.geojson');
 
-        // Sign in the user anonymously or by some other means (you can modify based on your logic)
-        UserCredential userCredential = await _auth.signInWithEmailAndPassword(email: email, password: 'your-temporary-password');
-        User? user = userCredential.user;
+    // Parse Parking Lot GeoJSON
+    final parkingData = jsonDecode(parkingGeoJson);
+    final List parkingFeatures = parkingData['features'];
 
-        if (user != null && !user.emailVerified) {
-          // Send email verification
-          await user.sendEmailVerification();
+    // Clear the previous polygons
+    parkingLotPolygons.clear();
 
-          setState(() {
-            isEmailSent = true;
-            isWaitingForVerification = true; // Start waiting for verification
-          });
+    // Fetch all parking lot statuses from Firestore
+    CollectionReference parkingCollection = FirebaseFirestore.instance.collection('ParkingLot');
 
-          // Check if email is verified periodically
-          await _checkEmailVerified(user);
-        }
-      });
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-not-found') {
-        setState(() {
-          isEmailValid = false; // Email doesn't exist
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("No account found with this email. Please check and try again.")),
-        );
-      } else {
-        print("Error sending verification email: $e");
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to send verification email. Try again later.")),
-        );
+    // Parse each parking lot and check against Firestore
+    for (var feature in parkingFeatures) {
+      final List coordinates = feature['geometry']['coordinates'][0];
+      List<LatLng> points = coordinates.map<LatLng>((coord) {
+        return LatLng(coord[1], coord[0]);  // LatLng expects [latitude, longitude]
+      }).toList();
+
+      // Get the polygon name
+      String parkingLotName = feature['properties']['Name'];
+
+      // Fetch parking lot data from Firestore
+      DocumentSnapshot document = await parkingCollection.doc(parkingLotName).get();
+
+      // Determine the polygon color
+      Color polygonColor = Colors.blue.withOpacity(0.3);  // Default color
+      if (document.exists) {
+        bool isVacant = document.get('vacant');
+        polygonColor = isVacant ? Colors.green.withOpacity(0.5) : Colors.red.withOpacity(0.5);
       }
-    } catch (e) {
-      print("Error: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Something went wrong. Please try again later.")),
+
+      // Create and add the polygon to the list
+      parkingLotPolygons.add(
+        Polygon(
+          polygonId: PolygonId(parkingLotName),
+          points: points,
+          strokeColor: polygonColor,
+          fillColor: polygonColor,
+          strokeWidth: 2,
+          consumeTapEvents: true,  // Enable tap events for the polygon
+          onTap: () {
+            // Call the callback when the polygon is tapped
+            showDialogCallback(parkingLotName);
+          },
+        ),
+      );
+    }
+
+    // Parse Path GeoJSON
+    final pathData = jsonDecode(pathGeoJson);
+    final List pathCoordinatesData = pathData['features'][0]['geometry']['coordinates'];
+
+    pathCoordinates = pathCoordinatesData.map<LatLng>((coord) {
+      return LatLng(coord[1], coord[0]);  // LatLng expects [latitude, longitude]
+    }).toList();
+
+    // Create the polyline for the path
+    pathPolyline = Polyline(
+      polylineId: PolylineId('path'),
+      points: pathCoordinates,
+      color: Colors.red,
+      width: 4,
+    );
+
+    // Parse Entrance GeoJSON and create markers
+    final entranceData = jsonDecode(entranceGeoJson);
+    final List entranceFeatures = entranceData['features'];
+
+    // Clear previous markers
+    entranceMarkers.clear();
+
+    // Create custom entrance markers
+    for (var feature in entranceFeatures) {
+      final List coordinates = feature['geometry']['coordinates'];
+      LatLng entrancePoint = LatLng(coordinates[1], coordinates[0]);
+
+      // Get the entrance name
+      String entranceName = feature['properties']['Name'];
+
+      // Add the entrance marker
+      entranceMarkers.add(
+        Marker(
+          markerId: MarkerId(entranceName),
+          position: entrancePoint,
+          icon: await getScaledMarkerIcon(70),  // Custom yellow marker with black outline
+          infoWindow: InfoWindow(title: entranceName),
+        ),
       );
     }
   }
 
-  // Function to periodically check if the email is verified
-  Future<void> _checkEmailVerified(User user) async {
-    emailVerificationTimer = Timer.periodic(Duration(seconds: 5), (timer) async {
-      await user.reload(); // Reload user state
-      user = _auth.currentUser!;
+  static Future<BitmapDescriptor> getScaledMarkerIcon(int markerSize) async {
+    final ByteData byteData = await rootBundle.load('assets/images/custom_marker.png');
+    final Uint8List imageData = byteData.buffer.asUint8List();
 
-      if (user.emailVerified) {
-        timer.cancel(); // Stop the timer when email is verified
-        setState(() {
-          isWaitingForVerification = false; // Stop waiting for verification
-        });
+    // Adjust the marker size based on zoom level
+    final ui.Codec codec = await ui.instantiateImageCodec(imageData, targetWidth: markerSize);
+    final ui.FrameInfo frameInfo = await codec.getNextFrame();
 
-        // Navigate to the Reset Password page once email is verified
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => ResetPasswordPage()),
-        );
-      }
-    });
+    final ui.Image image = frameInfo.image;
+    final ByteData? resizedBytes = await image.toByteData(format: ui.ImageByteFormat.png);
+
+    if (resizedBytes != null) {
+      return BitmapDescriptor.fromBytes(resizedBytes.buffer.asUint8List());
+    } else {
+      throw Exception("Failed to resize marker");
+    }
   }
 
-  // Build the waiting screen for email verification
-  Widget _buildVerificationWaitingScreen() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(),
-          SizedBox(height: 16.0),
-          Text(
-            "Waiting for email verification...",
-            style: TextStyle(fontSize: 18),
-          ),
-          SizedBox(height: 20),
-          Text(
-            "Please verify your email in your inbox.",
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text("Forgot Password"),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: isWaitingForVerification
-            ? _buildVerificationWaitingScreen() // Show waiting screen
-            : isEmailSent
-            ? Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.email, size: 80, color: Colors.purple),
-              SizedBox(height: 20),
-              Text(
-                "A verification email has been sent to ${emailController.text}. Please check your inbox.",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16),
-              ),
-            ],
-          ),
-        )
-            : Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              "Forgot Password",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 20),
-            TextField(
-              controller: emailController,
-              decoration: InputDecoration(
-                labelText: "Email",
-                errorText: isEmailValid ? null : "Email not found",
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                String email = emailController.text.trim();
-                if (email.isNotEmpty) {
-                  sendEmailVerification(email);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Please enter your email")),
-                  );
-                }
-              },
-              child: Text("Next"),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    emailVerificationTimer?.cancel(); // Ensure the timer is canceled
-    emailController.dispose(); // Dispose of controller
-    super.dispose();
-  }
 }
+

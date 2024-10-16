@@ -4,12 +4,27 @@ import 'package:flutter/material.dart';
 import 'login_page.dart';
 import 'dart:async'; // For Timer
 import 'package:flutter/services.dart'; // For TextInputFormatter
+import 'verification_waiting_page.dart'; // Import the new verification waiting page
 
-// Custom TextInputFormatter to remove spaces and convert to uppercase
+class UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    String newText = newValue.text.replaceAll(' ', '').toUpperCase();
+    int newOffset = newText.length;
+    if (newText.length < oldValue.text.length) {
+      newOffset = newText.length;
+    }
+
+    return TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: newOffset),
+    );
+  }
+}
+
 class CarPlateInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    // Remove spaces and convert to uppercase
     String newText = newValue.text.replaceAll(' ', '').toUpperCase();
     return TextEditingValue(
       text: newText,
@@ -28,7 +43,6 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-
   final TextEditingController nameController = TextEditingController();
   final TextEditingController contactController = TextEditingController();
   final TextEditingController carPlateController = TextEditingController();
@@ -38,7 +52,8 @@ class _RegisterPageState extends State<RegisterPage> {
 
   bool _passwordVisible = false;
   bool _confirmPasswordVisible = false;
-  bool isWaitingForVerification = false;
+
+  Timer? _verificationTimer; // Timer for email verification expiration
 
   Future<void> handleRegister() async {
     String name = nameController.text.trim();
@@ -49,75 +64,57 @@ class _RegisterPageState extends State<RegisterPage> {
     String confirmPassword = confirmPasswordController.text.trim();
 
     if (name.isEmpty || contact.isEmpty || carPlate.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text("Error"),
-          content: Text("Please fill out all fields"),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text("OK"),
-            ),
-          ],
-        ),
-      );
+      _showDialog("Error", "Please fill out all fields");
+      return;
     } else if (password != confirmPassword) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text("Error"),
-          content: Text("Passwords do not match"),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text("OK"),
-            ),
-          ],
-        ),
-      );
-    } else {
-      try {
-        // Register the user with Firebase Authentication
-        UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
-          email: email,
-          password: password,
-        );
-
-        // Send a verification email
-        User? user = userCredential.user;
-        await user?.sendEmailVerification();
-
-        // Indicate that we are waiting for email verification
-        setState(() {
-          isWaitingForVerification = true;
-        });
-
-        // Start checking periodically if the user has verified their email
-        _checkEmailVerified(user!, name, contact, carPlate, email);
-
-      } catch (e) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text("Error"),
-            content: Text(e.toString()),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: Text("OK"),
-              ),
-            ],
-          ),
-        );
-      }
+      _showDialog("Error", "Passwords do not match");
+      return;
     }
+
+    try {
+      // Register the user with Firebase Authentication
+      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      // Send a verification email
+      User? user = userCredential.user;
+      await user?.sendEmailVerification();
+
+      // Navigate to VerificationWaitingPage
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => VerificationWaitingPage()),
+      );
+
+      // Start the timer for 5 minutes
+      _verificationTimer = Timer(Duration(minutes: 5), () async {
+        await user?.delete(); // Delete the user if not verified
+        _showDialog("Timeout", "Your email verification link has expired. Please register again.");
+      });
+
+      // Start checking periodically if the user has verified their email
+      _checkEmailVerified(user!, name, contact, carPlate, email);
+    } catch (e) {
+      _showDialog("Error", e.toString());
+    }
+  }
+
+  void _showDialog(String title, String content) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text("OK"),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _checkEmailVerified(User user, String name, String contact, String carPlate, String email) async {
@@ -127,9 +124,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
       if (user.emailVerified) {
         timer.cancel(); // Stop the timer
-        setState(() {
-          isWaitingForVerification = false;
-        });
+        _verificationTimer?.cancel(); // Cancel the verification timer
 
         // Save user details to Firestore after email is verified
         DocumentReference userRef = FirebaseFirestore.instance.collection('Users').doc(user.uid);
@@ -140,36 +135,22 @@ class _RegisterPageState extends State<RegisterPage> {
           'uid': user.uid,
         });
 
-        // Add the car plate number to the CarPlateNumbers collection (top-level collection)
+        // Add the car plate number to the CarPlateNumbers collection
         await FirebaseFirestore.instance.collection('CarPlateNumbers').add({
           'plateNumber': carPlate,
-          'userId': user.uid, // Link the car plate to the user
+          'userId': user.uid,
+          'lock': false,
         });
 
-        // Show success dialog and navigate to login page
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text("Success"),
-            content: Text("Email verified! Your account has been successfully registered."),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop(); // Close the dialog
-
-                  // Navigate to the LoginPage using pushReplacement
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => LoginPage()),
-                  );
-                },
-                child: Text("OK"),
-              ),
-            ],
-          ),
-        );
+        _showDialog("Success", "Email verified! Your account has been successfully registered.");
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _verificationTimer?.cancel(); // Cancel the timer when the widget is disposed
+    super.dispose();
   }
 
   @override
@@ -182,36 +163,24 @@ class _RegisterPageState extends State<RegisterPage> {
           icon: Icon(Icons.arrow_back, color: Colors.purple),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(
-          "Register",
-          style: TextStyle(color: Colors.purple),
-        ),
+        title: Text("Register", style: TextStyle(color: Colors.purple)),
         centerTitle: true,
       ),
-      body: isWaitingForVerification
-          ? _buildVerificationWaitingScreen()
-          : Padding(
+      body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
           child: Column(
             children: [
-              Text(
-                "Create Account",
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              Text("Create Account", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
               SizedBox(height: 16.0),
-              _buildTextField(nameController, "Full Name", Icons.person),
+              _buildTextField(nameController, "Full Name", Icons.person, r'[A-Za-z ]'),
               SizedBox(height: 16.0),
-              _buildTextField(contactController, "Contact Number", Icons.phone, keyboardType: TextInputType.phone),
+              _buildTextField(contactController, "Contact Number", Icons.phone, r'[0-9]', keyboardType: TextInputType.phone),
               SizedBox(height: 16.0),
-              _buildTextField(carPlateController, "Car Plate Number", Icons.directions_car),
+              _buildTextField(carPlateController, "Car Plate Number", Icons.directions_car, r'[A-Za-z0-9]'),
               SizedBox(height: 16.0),
-              _buildTextField(emailController, "Email", Icons.email, keyboardType: TextInputType.emailAddress),
+              _buildTextField(emailController, "Email", Icons.email, ''),
               SizedBox(height: 16.0),
-
               _buildPasswordField(passwordController, "Password", _passwordVisible, () {
                 setState(() {
                   _passwordVisible = !_passwordVisible;
@@ -228,19 +197,11 @@ class _RegisterPageState extends State<RegisterPage> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: handleRegister,
-                  child: Text(
-                    "Register",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  child: Text("Register", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
                     padding: EdgeInsets.symmetric(vertical: 14.0),
                     backgroundColor: Colors.purple,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
               ),
@@ -251,23 +212,7 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  Widget _buildVerificationWaitingScreen() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(),
-          SizedBox(height: 16.0),
-          Text(
-            "The verification link has been sent to your student email. Please verify your email.",
-            style: TextStyle(fontSize: 18),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTextField(TextEditingController controller, String labelText, IconData icon, {TextInputType keyboardType = TextInputType.text}) {
+  Widget _buildTextField(TextEditingController controller, String labelText, IconData icon, String allowedChars, {TextInputType keyboardType = TextInputType.text}) {
     return TextField(
       controller: controller,
       decoration: InputDecoration(
@@ -276,15 +221,8 @@ class _RegisterPageState extends State<RegisterPage> {
         prefixIcon: Icon(icon),
       ),
       keyboardType: keyboardType,
-      inputFormatters: labelText == "Contact Number"
-          ? [
-        FilteringTextInputFormatter.allow(RegExp(r'[0-9]')), // Allow only numbers for contact number
-        FilteringTextInputFormatter.digitsOnly,
-      ]
-          : labelText == "Car Plate Number"
-          ? [
-        CarPlateInputFormatter(), // Apply the custom formatter to car plate number
-      ]
+      inputFormatters: allowedChars.isNotEmpty
+          ? [FilteringTextInputFormatter.allow(RegExp(allowedChars)), if (labelText == "Car Plate Number") CarPlateInputFormatter()]
           : [],
     );
   }
