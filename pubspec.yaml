@@ -74,6 +74,7 @@ flutter:
     - assets/parkinglots.geojson
     - assets/path.geojson
     - assets/path_new.geojson
+    - assets/path_new_new.geojson
     - assets/entrance.geojson
     - assets/images/custom_marker.png
   # An image asset can refer to one or more resolution-specific "variants", see
