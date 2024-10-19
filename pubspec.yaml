@@ -39,6 +39,8 @@ dependencies:
   google_maps_flutter: ^2.1.0
   http: ^0.13.4  # Check for the latest version
   geojson: ^1.0.0  # Check for the latest version
+  flutter_joystick: ^0.2.1 #for updating location to test navigation
+  image: ^4.0.15
 
 
   # The following adds the Cupertino Icons font to your application.
@@ -77,6 +79,7 @@ flutter:
     - assets/path_new_new.geojson
     - assets/entrance.geojson
     - assets/images/custom_marker.png
+    - assets/images/user_marker.png
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
 

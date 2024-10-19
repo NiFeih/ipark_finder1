@@ -3,8 +3,10 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'parking_data.dart';
 import 'navigation_service.dart'; // Ensure to import your navigation service
 import 'dart:async'; // Import this to use Timer
-import 'dart:ui';
-
+import 'dart:ui' as ui;
+import 'package:image/image.dart' as img;
+import 'package:flutter/services.dart';
+import 'dart:typed_data';
 
 class ParkingPage extends StatefulWidget {
   @override
@@ -18,6 +20,8 @@ class _ParkingPageState extends State<ParkingPage> {
   List<LatLng> _navigationPoints = []; // Store points for navigation
   LatLng? _destination; // Make it nullable
   static const double _proximityThreshold = 0.0001; // Proximity threshold in degrees
+  BitmapDescriptor? _customUserMarker; // Add this to hold the custom marker
+  double _currentZoom = 17.0; // Track the current zoom level
 
   final LatLngBounds _intiBounds = LatLngBounds(
     southwest: LatLng(5.3407917, 100.2809528),
@@ -26,7 +30,7 @@ class _ParkingPageState extends State<ParkingPage> {
 
   final LatLng _center = LatLng(5.3416, 100.2818);
   final LatLng _userLocation = LatLng(
-      5.34156, 100.28234); // User's fixed location
+      5.34158, 100.28234); // User's fixed location
 
   final String _mapStyle = '''
   [
@@ -49,18 +53,63 @@ class _ParkingPageState extends State<ParkingPage> {
     });
   }
 
-  LatLng _calculateCentroid(List<LatLng> points) {
-    double totalLat = 0.0;
-    double totalLng = 0.0;
-
-    for (LatLng point in points) {
-      totalLat += point.latitude;
-      totalLng += point.longitude;
-    }
-
-    return LatLng(totalLat / points.length, totalLng / points.length);
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadCustomUserMarker(_currentZoom);
   }
 
+  // Load custom user marker from assets and resize it based on zoom level
+  void _loadCustomUserMarker(double zoom) async {
+    try {
+      final ByteData data = await rootBundle.load('assets/images/user_marker.png');
+      final Uint8List bytes = data.buffer.asUint8List();
+
+      // Decode the image from the bytes
+      img.Image? baseSizeImage = img.decodeImage(bytes);
+      if (baseSizeImage == null) {
+        print("Failed to decode image.");
+        return;
+      }
+
+      // Resize the image based on the current zoom level
+      int newSize = (100 + (zoom - 1) * 10).toInt();// Adjusted formula for larger size // Adjust the size based on zoom
+      newSize = newSize.clamp(100, 250); // Limit the size within a range
+      img.Image resizedImage = img.copyResize(baseSizeImage, width: newSize, height: newSize);
+
+      // Convert the resized image to bytes
+      final ui.Codec codec = await ui.instantiateImageCodec(
+        Uint8List.fromList(img.encodePng(resizedImage)),
+      );
+      final ui.FrameInfo frameInfo = await codec.getNextFrame();
+
+      final ByteData? byteData = await frameInfo.image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+      if (byteData == null) {
+        print("Failed to convert image to ByteData.");
+        return;
+      }
+
+      final Uint8List resizedBytes = byteData.buffer.asUint8List();
+
+      // Convert the resized bytes into a BitmapDescriptor
+      _customUserMarker = BitmapDescriptor.fromBytes(resizedBytes);
+
+      setState(() {}); // Refresh the UI after loading the custom marker
+    } catch (e) {
+      print("Error loading custom user marker: $e");
+    }
+  }
+
+  // Callback when the camera moves
+  void _onCameraMove(CameraPosition position) {
+    double newZoom = position.zoom;
+    if ((_currentZoom - newZoom).abs() >= 0.1) { // Update if zoom changed significantly
+      _currentZoom = newZoom;
+      _loadCustomUserMarker(_currentZoom); // Reload marker with new size
+    }
+  }
 
   void _showParkingLotDialog(String parkingLotName) {
     bool isVacant = ParkingData.parkingLots[parkingLotName]?['vacant'] ?? false;
@@ -223,6 +272,7 @@ class _ParkingPageState extends State<ParkingPage> {
   }
 
 
+  // Update the _onMapCreated method to use the custom marker
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
     _mapController?.setMapStyle(_mapStyle).then((_) {
@@ -241,13 +291,14 @@ class _ParkingPageState extends State<ParkingPage> {
       ),
     );
 
-    // Add user location marker
+    // Add user location marker with the custom icon
     setState(() {
       ParkingData.entranceMarkers.add(Marker(
         markerId: MarkerId('user_location'),
         position: _userLocation,
         infoWindow: InfoWindow(title: 'Your Location'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+        icon: _customUserMarker ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue
+        ),
       ));
     });
 
@@ -258,6 +309,8 @@ class _ParkingPageState extends State<ParkingPage> {
       });
     });
   }
+
+
   void _onEntranceTapped(String entranceName) async {
     String? nearestParkingLot = ParkingData.findShortestPath(entranceName);
     if (nearestParkingLot != null) {
@@ -283,10 +336,11 @@ class _ParkingPageState extends State<ParkingPage> {
           GoogleMap(
             initialCameraPosition: CameraPosition(
               target: _center,
-              zoom: 17.0,
+              zoom: _currentZoom,
             ),
             mapType: MapType.normal,
             onMapCreated: _onMapCreated,
+            onCameraMove: _onCameraMove,
             polygons: ParkingData.parkingLotPolygons.map((polygon) {
               return polygon.copyWith(
                 consumeTapEventsParam: true,
@@ -318,7 +372,8 @@ class _ParkingPageState extends State<ParkingPage> {
                 markerId: MarkerId('user_location'),
                 position: _userLocation,
                 infoWindow: InfoWindow(title: 'Your Location'),
-                icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+                icon: _customUserMarker ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+                anchor: Offset(0.5, 0.5), // Center the marker
               )),
             cameraTargetBounds: CameraTargetBounds(_intiBounds),
             minMaxZoomPreference: MinMaxZoomPreference(19.5, 22),
@@ -433,4 +488,3 @@ class _ParkingPageState extends State<ParkingPage> {
     );
   }
 }
-
