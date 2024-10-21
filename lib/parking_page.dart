@@ -240,7 +240,7 @@ class _ParkingPageState extends State<ParkingPage> {
     return bearing;
   }
 
-  void _startMovingAlongPath() {
+  void _startMovingAlongPath(String parkingLotName) {
     if (_navigationPoints.isEmpty) {
       print("No navigation path available.");
       return;
@@ -277,29 +277,82 @@ class _ParkingPageState extends State<ParkingPage> {
       // Update the user's location to the next point in the path
       LatLng nextLocation = _navigationPoints[currentIndex + 1];
 
+      // Check the current destination parking lot for vacancy
+      bool isVacant = ParkingData.parkingLots[parkingLotName]?['vacant'] ?? false;
+
+      // Print statement to debug
+      print("Checking vacancy for: $parkingLotName, Is vacant: $isVacant");
+
+      // If the parking lot is not vacant, show a notification and stop navigation
+      if (!isVacant) {
+        // Stop the navigation
+        _stopNavigation();
+        // Show a notification for the occupied parking lot
+        _showOccupiedParkingLotDialog(parkingLotName);
+        timer.cancel(); // Stop navigation if the parking lot is occupied
+        return;
+      }
+
       setState(() {
-        currentLocation = _navigationPoints[currentIndex]; // Update user location to the current navigation point
+        currentLocation = _navigationPoints[currentIndex];
         _userLocation = currentLocation;
       });
 
       // Calculate the new bearing to face the next point
       double newBearing = _calculateBearing(currentLocation, nextLocation);
 
-      // Animate the camera to follow the updated user location and bearing
-      _mapController?.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(
-            target: currentLocation,
-            zoom: 25, // Maintain zoom level during navigation
-            bearing: newBearing, // Update the bearing to face the next point
-          ),
-        ),
-      );
+      // Get the current camera position
+      _mapController?.getVisibleRegion().then((LatLngBounds bounds) {
+        double bearingChange = (_currentBearing - newBearing).abs();
+        if (bearingChange >= 20.0) {
+          _mapController?.animateCamera(
+              CameraUpdate.newCameraPosition(
+                CameraPosition(
+                  target: currentLocation,
+                  zoom: 25,
+                  bearing: newBearing,
+                ),
+              ),
+              );
+
+              _currentBearing = newBearing; // Update the tracked bearing
+              } else {
+              _mapController?.animateCamera(
+              CameraUpdate.newLatLng(_userLocation),
+              );
+              }
+          });
 
       // Increment the index to move to the next point
       currentIndex++;
     });
   }
+
+
+
+
+
+  void _showOccupiedParkingLotDialog(String parkingLotName) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("Parking Lot Occupied"),
+          content: Text("$parkingLotName is currently occupied."),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+              },
+              child: Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
 
 
   Future<void> _navigateToParkingLot(String parkingLotName) async {
@@ -308,8 +361,7 @@ class _ParkingPageState extends State<ParkingPage> {
     });
 
     // Retrieve the list of coordinates representing the corners of the parking lot
-    List<LatLng>? parkingLotCoordinates = ParkingData
-        .parkingLots[parkingLotName]?['coordinates'];
+    List<LatLng>? parkingLotCoordinates = ParkingData.parkingLots[parkingLotName]?['coordinates'];
 
     LatLng parkingLotCenter;
 
@@ -318,12 +370,10 @@ class _ParkingPageState extends State<ParkingPage> {
       parkingLotCenter = _calculateCentroid(parkingLotCoordinates);
     } else {
       // Fallback to the 'location' if the coordinates are not available
-      LatLng? fallbackLocation = ParkingData
-          .parkingLots[parkingLotName]?['location'];
+      LatLng? fallbackLocation = ParkingData.parkingLots[parkingLotName]?['location'];
       if (fallbackLocation == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(
-              "No coordinates or location available for $parkingLotName.")),
+          SnackBar(content: Text("No coordinates or location available for $parkingLotName.")),
         );
         setState(() {
           _isNavigating = false; // Reset the navigation state
@@ -359,9 +409,10 @@ class _ParkingPageState extends State<ParkingPage> {
 
     _monitorNavigation();
 
-    // Start moving along the path
-    _startMovingAlongPath();
+    // Start moving along the path, passing the parking lot name
+    _startMovingAlongPath(parkingLotName);
   }
+
 
   LatLng _calculateCentroid(List<LatLng> points) {
     double latitudeSum = 0.0;
@@ -672,18 +723,31 @@ class _ParkingPageState extends State<ParkingPage> {
               child: FloatingActionButton(
                 onPressed: () {
                   if (_mapController != null) {
-                    LatLng targetLocation = _isNavigating
-                        ? _userLocation
-                        : _center; // Change target based on navigation state
-                    _mapController!.animateCamera(
-                      CameraUpdate.newCameraPosition(
-                        CameraPosition(
-                          target: targetLocation,
-                          zoom: 19.5,
-                          bearing: -36.0,
+                    LatLng targetLocation = _isNavigating ? _userLocation : _center; // Change target based on navigation state
+
+                    // If navigating, animate the camera to the user's location with current bearing
+                    if (_isNavigating) {
+                      _mapController!.animateCamera(
+                        CameraUpdate.newCameraPosition(
+                          CameraPosition(
+                            target: targetLocation,
+                            zoom: 25, // Set zoom level to 25
+                            bearing: _currentBearing, // Use current bearing to face the path
+                          ),
                         ),
-                      ),
-                    );
+                      );
+                    } else {
+                      // If not navigating, center on the starting point
+                      _mapController!.animateCamera(
+                        CameraUpdate.newCameraPosition(
+                          CameraPosition(
+                            target: targetLocation,
+                            zoom: 19.5,
+                            bearing: -36.0, // Adjust as necessary for your initial view
+                          ),
+                        ),
+                      );
+                    }
                   } else {
                     print("Map controller is not initialized yet.");
                   }
@@ -694,6 +758,8 @@ class _ParkingPageState extends State<ParkingPage> {
               ),
             ),
           ),
+
+
 
           // Add the loading overlay
           if (_isMapLoading)
