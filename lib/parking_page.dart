@@ -7,6 +7,11 @@ import 'dart:ui' as ui;
 import 'package:image/image.dart' as img;
 import 'package:flutter/services.dart';
 import 'dart:typed_data';
+import 'dart:math' as math;
+
+
+
+
 
 class ParkingPage extends StatefulWidget {
   @override
@@ -19,9 +24,13 @@ class _ParkingPageState extends State<ParkingPage> {
   bool _isNavigating = false; // Track navigation state
   List<LatLng> _navigationPoints = []; // Store points for navigation
   LatLng? _destination; // Make it nullable
-  static const double _proximityThreshold = 0.0001; // Proximity threshold in degrees
+  static const double _proximityThreshold = 0.00008; // Proximity threshold in degrees
   BitmapDescriptor? _customUserMarker; // Add this to hold the custom marker
   double _currentZoom = 17.0; // Track the current zoom level
+  // Add this Timer to track the navigation monitoring timer
+  Timer? _navigationMonitorTimer;
+
+  bool _hasReachedDestination = false;
 
   final LatLngBounds _intiBounds = LatLngBounds(
     southwest: LatLng(5.3407917, 100.2809528),
@@ -29,8 +38,8 @@ class _ParkingPageState extends State<ParkingPage> {
   );
 
   final LatLng _center = LatLng(5.3416, 100.2818);
-  final LatLng _userLocation = LatLng(
-      5.34158, 100.28234); // User's fixed location
+  // LatLng _userLocation = LatLng(5.34158, 100.28234); // User's fixed location at guardhouse
+  LatLng _userLocation = LatLng(5.34165, 100.28212); // User's fixed location
 
   final String _mapStyle = '''
   [
@@ -171,15 +180,108 @@ class _ParkingPageState extends State<ParkingPage> {
     );
   }
 
+  double _calculateBearing(LatLng start, LatLng end) {
+    double startLat = start.latitude * (math.pi / 180.0);
+    double startLng = start.longitude * (math.pi / 180.0);
+    double endLat = end.latitude * (math.pi / 180.0);
+    double endLng = end.longitude * (math.pi / 180.0);
+
+    double dLng = endLng - startLng;
+    double y = math.sin(dLng) * math.cos(endLat);
+    double x = math.cos(startLat) * math.sin(endLat) -
+        math.sin(startLat) * math.cos(endLat) * math.cos(dLng);
+
+    double bearing = math.atan2(y, x);
+    bearing = bearing * (180.0 / math.pi);
+    bearing = (bearing + 360.0) % 360.0;
+
+    return bearing;
+  }
+
+
+
+  void _startMovingAlongPath() {
+    if (_navigationPoints.isEmpty) {
+      print("No navigation path available.");
+      return;
+    }
+
+    int currentIndex = 0;
+
+    // Timer to update the user location along the path
+    Timer.periodic(Duration(seconds: 1), (timer) {
+      if (currentIndex >= _navigationPoints.length - 1) {
+        timer.cancel();
+        print("User has reached the destination.");
+        _showReachedDestinationDialog(); // Show the reached destination dialog
+        return;
+      }
+
+      // Update the user's location to the next point in the path
+      LatLng currentLocation = _navigationPoints[currentIndex];
+      LatLng nextLocation = _navigationPoints[currentIndex + 1];
+
+      setState(() {
+        _userLocation = currentLocation;
+      });
+
+      // Calculate the bearing to face the next point
+      double bearing = _calculateBearing(currentLocation, nextLocation);
+
+      // Animate the camera to follow the updated user location and bearing
+      _mapController?.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: _userLocation,
+            zoom: 20,
+            bearing: bearing,
+          ),
+        ),
+      );
+
+      // Increment the index to move to the next point
+      currentIndex++;
+    });
+  }
+
+
+
   Future<void> _navigateToParkingLot(String parkingLotName) async {
     setState(() {
       _isNavigating = true;
     });
 
-    LatLng parkingLotLocation = ParkingData
-        .parkingLots[parkingLotName]!['location'];
+    // Retrieve the list of coordinates representing the corners of the parking lot
+    List<LatLng>? parkingLotCoordinates = ParkingData.parkingLots[parkingLotName]?['coordinates'];
+
+    LatLng parkingLotCenter;
+
+    if (parkingLotCoordinates != null && parkingLotCoordinates.isNotEmpty) {
+      // Calculate the centroid if the coordinates are available
+      parkingLotCenter = _calculateCentroid(parkingLotCoordinates);
+    } else {
+      // Fallback to the 'location' if the coordinates are not available
+      LatLng? fallbackLocation = ParkingData.parkingLots[parkingLotName]?['location'];
+      if (fallbackLocation == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("No coordinates or location available for $parkingLotName.")),
+        );
+        setState(() {
+          _isNavigating = false; // Reset the navigation state
+        });
+        return;
+      }
+      parkingLotCenter = fallbackLocation;
+    }
+
+    // Set the destination to the calculated center
+    _destination = parkingLotCenter;
+
+    // Fetch the custom path for navigation
     List<LatLng> customPath = await NavigationService.fetchCustomPathSegment(
-        _userLocation, parkingLotLocation);
+      _userLocation,
+      _destination!,
+    );
 
     setState(() {
       ParkingData.pathPolyline = Polyline(
@@ -190,7 +292,6 @@ class _ParkingPageState extends State<ParkingPage> {
       );
 
       _navigationPoints = customPath;
-      _destination = parkingLotLocation;
     });
 
     _mapController?.animateCamera(
@@ -198,25 +299,82 @@ class _ParkingPageState extends State<ParkingPage> {
     );
 
     _monitorNavigation();
+
+    // Start moving along the path
+    _startMovingAlongPath();
   }
 
+// Helper method to calculate the centroid of a polygon
+  LatLng _calculateCentroid(List<LatLng> points) {
+    double latitudeSum = 0.0;
+    double longitudeSum = 0.0;
+
+    for (var point in points) {
+      latitudeSum += point.latitude;
+      longitudeSum += point.longitude;
+    }
+
+    return LatLng(latitudeSum / points.length, longitudeSum / points.length);
+  }
+
+
+
+  // Method to show a dialog box when the user reaches the destination
+  void _showReachedDestinationDialog() {
+    if (!_isNavigating || _hasReachedDestination) return; // Prevent showing the dialog if navigation is stopped or already reached
+
+    _hasReachedDestination = true; // Set the flag to true
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("You Have Arrived"),
+          content: Text("You have reached your destination."),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+                _stopNavigation(); // Stop the navigation
+              },
+              child: Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
+  // Updated _monitorNavigation method
   void _monitorNavigation() {
-    Timer.periodic(Duration(seconds: 1), (timer) {
+    // Cancel any previous timer if still active
+    _navigationMonitorTimer?.cancel();
+
+    _navigationMonitorTimer = Timer.periodic(Duration(seconds: 1), (timer) {
       if (_isCloseToDestination(_userLocation)) {
-        _stopNavigation();
-        timer.cancel();
+        _showReachedDestinationDialog(); // Show the dialog when the destination is reached
+        timer.cancel(); // Stop the timer
+        _navigationMonitorTimer = null;
       }
     });
   }
 
-  // Check proximity to destination
+// Check proximity to destination
   bool _isCloseToDestination(LatLng currentLocation) {
     if (_destination == null) return false; // Handle null case
+
+    // Calculate the absolute difference between the current and destination latitudes
     double latDiff = (currentLocation.latitude - _destination!.latitude).abs();
-    double lngDiff = (currentLocation.longitude - _destination!.longitude)
-        .abs();
+
+    // Calculate the absolute difference between the current and destination longitudes
+    double lngDiff = (currentLocation.longitude - _destination!.longitude).abs();
+
+    // Check if both latitude and longitude differences are within the defined proximity threshold
     return latDiff < _proximityThreshold && lngDiff < _proximityThreshold;
   }
+
+
 
   // Method to show confirmation before stopping navigation
   void _confirmStopNavigation() {
@@ -250,9 +408,14 @@ class _ParkingPageState extends State<ParkingPage> {
   void _stopNavigation() {
     setState(() {
       _isNavigating = false; // Set navigation state to false
+      _hasReachedDestination = false; // Reset the reached destination flag
       ParkingData.pathPolyline = null; // Clear the polyline
       _navigationPoints.clear(); // Clear navigation points
     });
+
+    // Cancel the navigation monitor timer
+    _navigationMonitorTimer?.cancel();
+    _navigationMonitorTimer = null;
 
     // Animate the camera back to the center of Inti Penang
     _mapController?.animateCamera(
@@ -270,7 +433,6 @@ class _ParkingPageState extends State<ParkingPage> {
       SnackBar(content: Text("Navigation stopped.")),
     );
   }
-
 
   // Update the _onMapCreated method to use the custom marker
   void _onMapCreated(GoogleMapController controller) {
@@ -374,7 +536,18 @@ class _ParkingPageState extends State<ParkingPage> {
                 infoWindow: InfoWindow(title: 'Your Location'),
                 icon: _customUserMarker ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
                 anchor: Offset(0.5, 0.5), // Center the marker
-              )),
+              ))
+            // Add the destination marker if navigating
+              ..addAll(_isNavigating && _destination != null
+                  ? [
+                Marker(
+                  markerId: MarkerId('destination'),
+                  position: _destination!,
+                  infoWindow: InfoWindow(title: 'Destination'),
+                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+                ),
+              ]
+                  : []),
             cameraTargetBounds: CameraTargetBounds(_intiBounds),
             minMaxZoomPreference: MinMaxZoomPreference(19.5, 22),
           ),

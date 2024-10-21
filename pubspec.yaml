@@ -31,7 +31,7 @@ dependencies:
   flutter:
     sdk: flutter
   firebase_core: ^3.4.0 # Add this line for Firebase Core (you can check for the latest version on pub.dev)
-  firebase_auth: ^5.2.0   # Add other Firebase services you need
+  firebase_auth: ^5.3.1   # Add other Firebase services you need
   cloud_firestore: ^5.4.0
   flutter_slidable: ^3.1.1
   flutter_map: ^4.0.0  # Package for map handling
@@ -41,6 +41,11 @@ dependencies:
   geojson: ^1.0.0  # Check for the latest version
   flutter_joystick: ^0.2.1 #for updating location to test navigation
   image: ^4.0.15
+  agora_rtc_engine: ^6.0.0
+  flutter_local_notifications: ^17.2.1
+  firebase_messaging: ^15.1.3
+  url_launcher: ^6.0.20  # Add this line
+
 
 
   # The following adds the Cupertino Icons font to your application.

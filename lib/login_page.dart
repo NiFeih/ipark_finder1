@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
 import 'package:firebase_core/firebase_core.dart'; // Import Firebase Core
+import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore
+import 'package:firebase_messaging/firebase_messaging.dart'; // Import Firebase Messaging
 import 'register_terms_conditions.dart';
 import 'forgot_password.dart';
 import 'home_page.dart';
@@ -64,6 +66,18 @@ class _LoginPageState extends State<LoginPage> {
       Navigator.of(context).pop();
 
       if (success) {
+        // Get the FCM token
+        String? fcmToken = await FirebaseMessaging.instance.getToken();
+
+        if (fcmToken != null) {
+          // Store the FCM token in Firestore under the user's document
+          String uid = FirebaseAuth.instance.currentUser!.uid; // Get the current user's UID
+          await FirebaseFirestore.instance.collection('Users').doc(uid).set({
+            'fcmToken': fcmToken,
+            // Add other user details if necessary
+          }, SetOptions(merge: true)); // Use merge to update without overwriting other fields
+        }
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => HomePage()), // Navigate to HomePage
@@ -87,7 +101,6 @@ class _LoginPageState extends State<LoginPage> {
       }
     }
   }
-
 
   @override
   Widget build(BuildContext context) {

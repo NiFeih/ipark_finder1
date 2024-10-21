@@ -36,8 +36,7 @@ class NavigationService {
       throw Exception('Failed to load directions: ${response.statusCode}');
     }
   }
-
-  // Function to fetch the custom path segment from the GeoJSON file
+// Updated function to fetch the custom path segment
   static Future<List<LatLng>> fetchCustomPathSegment(LatLng userLocation, LatLng parkingLotLocation) async {
     String geojson = await rootBundle.loadString('assets/path_new_new.geojson');
     final data = json.decode(geojson);
@@ -69,24 +68,23 @@ class NavigationService {
     LatLng closestToUser = _findClosestPoint(userLocation, fullPath);
     LatLng closestToParkingLot = _findClosestPoint(parkingLotLocation, fullPath);
 
-    // Get segments using _getClosestPointOnSegment
-    LatLng closestUserSegment = _getClosestPointOnSegment(userLocation, closestToUser, closestToParkingLot);
-    LatLng closestParkingSegment = _getClosestPointOnSegment(parkingLotLocation, closestToUser, closestToParkingLot);
-
     // Find the indices of the closest points in the fullPath
     int indexOfClosestToUser = fullPath.indexOf(closestToUser);
     int indexOfClosestToParkingLot = fullPath.indexOf(closestToParkingLot);
 
-// Check if both indices are valid
+    // Check if both indices are valid
     if (indexOfClosestToUser == -1 || indexOfClosestToParkingLot == -1) {
       throw Exception('One or both closest points not found on the path.');
     }
 
-// Extract the segment between the two closest points
+    // Extract the segment based on index positions
     if (indexOfClosestToUser <= indexOfClosestToParkingLot) {
+      // Normal case: user location is before or at the parking lot location
       segment = fullPath.sublist(indexOfClosestToUser, indexOfClosestToParkingLot + 1);
     } else {
-      segment = fullPath.sublist(indexOfClosestToParkingLot, indexOfClosestToUser + 1).reversed.toList();
+      // User location is after the parking lot, so we need to wrap around
+      segment = fullPath.sublist(indexOfClosestToUser) // Segment from user location to the end
+          + fullPath.sublist(3, indexOfClosestToParkingLot + 1); // Continue from the fourth point to the parking lot
     }
 
     if (segment.isEmpty) {
@@ -95,6 +93,8 @@ class NavigationService {
 
     return segment;
   }
+
+
 
   // Helper function to find the closest point in the path to a given location
   static LatLng _findClosestPoint(LatLng location, List<LatLng> path) {

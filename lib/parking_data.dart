@@ -63,7 +63,8 @@ class ParkingData {
         // **Ensure correct structure**: location (LatLng) and vacant (bool)
         parkingLots[parkingLotName] = {
           'location': points[0],  // Storing LatLng as 'location'
-          'vacant': isVacant      // Storing vacancy status as 'vacant'
+          'vacant': isVacant,      // Storing vacancy status as 'vacant'
+          'coordinates': points  // List of LatLng points representing the corners
         };
       }
 
