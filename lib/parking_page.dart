@@ -9,10 +9,6 @@ import 'package:flutter/services.dart';
 import 'dart:typed_data';
 import 'dart:math' as math;
 
-
-
-
-
 class ParkingPage extends StatefulWidget {
   @override
   _ParkingPageState createState() => _ParkingPageState();
@@ -27,10 +23,20 @@ class _ParkingPageState extends State<ParkingPage> {
   static const double _proximityThreshold = 0.00008; // Proximity threshold in degrees
   BitmapDescriptor? _customUserMarker; // Add this to hold the custom marker
   double _currentZoom = 17.0; // Track the current zoom level
-  // Add this Timer to track the navigation monitoring timer
-  Timer? _navigationMonitorTimer;
+  Timer? _navigationMonitorTimer; // Add this Timer to track the navigation monitoring timer
 
   bool _hasReachedDestination = false;
+
+  // Keep track of the current bearing
+  double _currentBearing = 0.0;
+
+  // Add a StreamSubscription to manage the Firestore listener
+  StreamSubscription? _parkingLotListener;
+
+
+  // Add this line to declare the subscription variable
+  StreamSubscription<void>? _parkingLotSubscription;
+
 
   final LatLngBounds _intiBounds = LatLngBounds(
     southwest: LatLng(5.3407917, 100.2809528),
@@ -38,7 +44,6 @@ class _ParkingPageState extends State<ParkingPage> {
   );
 
   final LatLng _center = LatLng(5.3416, 100.2818);
-  // LatLng _userLocation = LatLng(5.34158, 100.28234); // User's fixed location at guardhouse
   LatLng _userLocation = LatLng(5.34165, 100.28212); // User's fixed location
 
   final String _mapStyle = '''
@@ -55,11 +60,43 @@ class _ParkingPageState extends State<ParkingPage> {
   @override
   void initState() {
     super.initState();
+
+    ParkingData.listenToParkingLotUpdates(_showParkingLotDialog, (double zoomLevel) {
+      if (mounted) {
+        setState(() {
+          _currentZoom = zoomLevel; // Update the current zoom level
+        });
+
+        // // Animate the camera to the current position with the new zoom level
+        // if (_mapController != null) {
+        //   _mapController!.animateCamera(CameraUpdate.newCameraPosition(
+        //     CameraPosition(
+        //       target: _userLocation, // or any other target you want
+        //       zoom: _currentZoom,
+        //       bearing: 0, // Adjust bearing if necessary
+        //     ),
+        //   ));
+        // } else {
+        //   print("Map controller is not initialized yet.");
+        // }
+      }
+    }).listen((_) {
+      // Optional: handle additional state changes
+    });
+
+    // Load initial parking lot data
     ParkingData.loadGeoJson(_showParkingLotDialog).then((_) {
-      setState(() {}); // Refresh UI after data is loaded
+      setState(() {});
     }).catchError((e) {
       print("Error loading GeoJSON data: $e");
     });
+  }
+
+
+  @override
+  void dispose() {
+    _parkingLotSubscription?.cancel(); // Cancel subscription on dispose
+    super.dispose();
   }
 
   @override
@@ -71,7 +108,8 @@ class _ParkingPageState extends State<ParkingPage> {
   // Load custom user marker from assets and resize it based on zoom level
   void _loadCustomUserMarker(double zoom) async {
     try {
-      final ByteData data = await rootBundle.load('assets/images/user_marker.png');
+      final ByteData data = await rootBundle.load(
+          'assets/images/user_marker.png');
       final Uint8List bytes = data.buffer.asUint8List();
 
       // Decode the image from the bytes
@@ -82,9 +120,11 @@ class _ParkingPageState extends State<ParkingPage> {
       }
 
       // Resize the image based on the current zoom level
-      int newSize = (100 + (zoom - 1) * 10).toInt();// Adjusted formula for larger size // Adjust the size based on zoom
+      int newSize = (100 + (zoom - 1) * 10)
+          .toInt(); // Adjusted formula for larger size
       newSize = newSize.clamp(100, 250); // Limit the size within a range
-      img.Image resizedImage = img.copyResize(baseSizeImage, width: newSize, height: newSize);
+      img.Image resizedImage = img.copyResize(
+          baseSizeImage, width: newSize, height: newSize);
 
       // Convert the resized image to bytes
       final ui.Codec codec = await ui.instantiateImageCodec(
@@ -114,7 +154,8 @@ class _ParkingPageState extends State<ParkingPage> {
   // Callback when the camera moves
   void _onCameraMove(CameraPosition position) {
     double newZoom = position.zoom;
-    if ((_currentZoom - newZoom).abs() >= 0.1) { // Update if zoom changed significantly
+    if ((_currentZoom - newZoom).abs() >=
+        0.1) { // Update if zoom changed significantly
       _currentZoom = newZoom;
       _loadCustomUserMarker(_currentZoom); // Reload marker with new size
     }
@@ -180,6 +221,7 @@ class _ParkingPageState extends State<ParkingPage> {
     );
   }
 
+  // Calculate the bearing from one LatLng to another
   double _calculateBearing(LatLng start, LatLng end) {
     double startLat = start.latitude * (math.pi / 180.0);
     double startLng = start.longitude * (math.pi / 180.0);
@@ -198,8 +240,6 @@ class _ParkingPageState extends State<ParkingPage> {
     return bearing;
   }
 
-
-
   void _startMovingAlongPath() {
     if (_navigationPoints.isEmpty) {
       print("No navigation path available.");
@@ -207,6 +247,23 @@ class _ParkingPageState extends State<ParkingPage> {
     }
 
     int currentIndex = 0;
+
+    // Set the initial user location
+    LatLng currentLocation = _userLocation;
+
+    // Calculate the initial bearing to face the first navigation point
+    double initialBearing = _calculateBearing(currentLocation, _navigationPoints[currentIndex]);
+
+    // Set the camera to zoom level 25 at the start of navigation, facing the first point
+    _mapController?.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: _navigationPoints[currentIndex],
+          zoom: 25, // Set the zoom level to 25 when starting navigation
+          bearing: initialBearing, // Set the initial bearing based on user perspective
+        ),
+      ),
+    );
 
     // Timer to update the user location along the path
     Timer.periodic(Duration(seconds: 1), (timer) {
@@ -218,23 +275,23 @@ class _ParkingPageState extends State<ParkingPage> {
       }
 
       // Update the user's location to the next point in the path
-      LatLng currentLocation = _navigationPoints[currentIndex];
       LatLng nextLocation = _navigationPoints[currentIndex + 1];
 
       setState(() {
+        currentLocation = _navigationPoints[currentIndex]; // Update user location to the current navigation point
         _userLocation = currentLocation;
       });
 
-      // Calculate the bearing to face the next point
-      double bearing = _calculateBearing(currentLocation, nextLocation);
+      // Calculate the new bearing to face the next point
+      double newBearing = _calculateBearing(currentLocation, nextLocation);
 
       // Animate the camera to follow the updated user location and bearing
       _mapController?.animateCamera(
         CameraUpdate.newCameraPosition(
           CameraPosition(
-            target: _userLocation,
-            zoom: 20,
-            bearing: bearing,
+            target: currentLocation,
+            zoom: 25, // Maintain zoom level during navigation
+            bearing: newBearing, // Update the bearing to face the next point
           ),
         ),
       );
@@ -245,14 +302,14 @@ class _ParkingPageState extends State<ParkingPage> {
   }
 
 
-
   Future<void> _navigateToParkingLot(String parkingLotName) async {
     setState(() {
       _isNavigating = true;
     });
 
     // Retrieve the list of coordinates representing the corners of the parking lot
-    List<LatLng>? parkingLotCoordinates = ParkingData.parkingLots[parkingLotName]?['coordinates'];
+    List<LatLng>? parkingLotCoordinates = ParkingData
+        .parkingLots[parkingLotName]?['coordinates'];
 
     LatLng parkingLotCenter;
 
@@ -261,10 +318,12 @@ class _ParkingPageState extends State<ParkingPage> {
       parkingLotCenter = _calculateCentroid(parkingLotCoordinates);
     } else {
       // Fallback to the 'location' if the coordinates are not available
-      LatLng? fallbackLocation = ParkingData.parkingLots[parkingLotName]?['location'];
+      LatLng? fallbackLocation = ParkingData
+          .parkingLots[parkingLotName]?['location'];
       if (fallbackLocation == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("No coordinates or location available for $parkingLotName.")),
+          SnackBar(content: Text(
+              "No coordinates or location available for $parkingLotName.")),
         );
         setState(() {
           _isNavigating = false; // Reset the navigation state
@@ -304,7 +363,6 @@ class _ParkingPageState extends State<ParkingPage> {
     _startMovingAlongPath();
   }
 
-// Helper method to calculate the centroid of a polygon
   LatLng _calculateCentroid(List<LatLng> points) {
     double latitudeSum = 0.0;
     double longitudeSum = 0.0;
@@ -317,11 +375,9 @@ class _ParkingPageState extends State<ParkingPage> {
     return LatLng(latitudeSum / points.length, longitudeSum / points.length);
   }
 
-
-
-  // Method to show a dialog box when the user reaches the destination
   void _showReachedDestinationDialog() {
-    if (!_isNavigating || _hasReachedDestination) return; // Prevent showing the dialog if navigation is stopped or already reached
+    if (!_isNavigating || _hasReachedDestination)
+      return; // Prevent showing the dialog if navigation is stopped or already reached
 
     _hasReachedDestination = true; // Set the flag to true
 
@@ -345,8 +401,6 @@ class _ParkingPageState extends State<ParkingPage> {
     );
   }
 
-
-  // Updated _monitorNavigation method
   void _monitorNavigation() {
     // Cancel any previous timer if still active
     _navigationMonitorTimer?.cancel();
@@ -360,7 +414,6 @@ class _ParkingPageState extends State<ParkingPage> {
     });
   }
 
-// Check proximity to destination
   bool _isCloseToDestination(LatLng currentLocation) {
     if (_destination == null) return false; // Handle null case
 
@@ -368,15 +421,13 @@ class _ParkingPageState extends State<ParkingPage> {
     double latDiff = (currentLocation.latitude - _destination!.latitude).abs();
 
     // Calculate the absolute difference between the current and destination longitudes
-    double lngDiff = (currentLocation.longitude - _destination!.longitude).abs();
+    double lngDiff = (currentLocation.longitude - _destination!.longitude)
+        .abs();
 
     // Check if both latitude and longitude differences are within the defined proximity threshold
     return latDiff < _proximityThreshold && lngDiff < _proximityThreshold;
   }
 
-
-
-  // Method to show confirmation before stopping navigation
   void _confirmStopNavigation() {
     showDialog(
       context: context,
@@ -404,7 +455,6 @@ class _ParkingPageState extends State<ParkingPage> {
     );
   }
 
-  // Stop Navigation method
   void _stopNavigation() {
     setState(() {
       _isNavigating = false; // Set navigation state to false
@@ -434,7 +484,6 @@ class _ParkingPageState extends State<ParkingPage> {
     );
   }
 
-  // Update the _onMapCreated method to use the custom marker
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
     _mapController?.setMapStyle(_mapStyle).then((_) {
@@ -442,6 +491,19 @@ class _ParkingPageState extends State<ParkingPage> {
     }).catchError((error) {
       print("Error applying map style: $error");
     });
+
+    // Check if the user location marker already exists
+    if (ParkingData.entranceMarkers.every((marker) =>
+    marker.markerId.value != 'user_location')) {
+      ParkingData.entranceMarkers.add(Marker(
+        markerId: MarkerId('user_location'),
+        position: _userLocation,
+        infoWindow: InfoWindow(title: 'Your Location'),
+        icon: _customUserMarker ??
+            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+        anchor: Offset(0.5, 0.5), // Center the marker
+      ));
+    }
 
     _mapController?.animateCamera(
       CameraUpdate.newCameraPosition(
@@ -452,17 +514,6 @@ class _ParkingPageState extends State<ParkingPage> {
         ),
       ),
     );
-
-    // Add user location marker with the custom icon
-    setState(() {
-      ParkingData.entranceMarkers.add(Marker(
-        markerId: MarkerId('user_location'),
-        position: _userLocation,
-        infoWindow: InfoWindow(title: 'Your Location'),
-        icon: _customUserMarker ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue
-        ),
-      ));
-    });
 
     // Add a one-second delay before setting `_isMapLoading` to false
     Future.delayed(Duration(seconds: 1), () {
@@ -507,7 +558,7 @@ class _ParkingPageState extends State<ParkingPage> {
               return polygon.copyWith(
                 consumeTapEventsParam: true,
                 onTapParam: () {
-                  if (!_isNavigating) { // Only allow tap if not navigating
+                  if (!_isNavigating) {
                     _showParkingLotDialog(polygon.polygonId.value);
                   }
                 },
@@ -519,12 +570,10 @@ class _ParkingPageState extends State<ParkingPage> {
             markers: ParkingData.entranceMarkers.map((marker) {
               return marker.copyWith(
                 onTapParam: () {
-                  if (!_isNavigating) { // Only allow tap if not navigating
+                  if (!_isNavigating) {
                     final markerIdValue = marker.markerId?.value;
                     if (markerIdValue != null) {
                       _onEntranceTapped(markerIdValue);
-                    } else {
-                      print("Marker ID or its value is null.");
                     }
                   }
                 },
@@ -534,25 +583,25 @@ class _ParkingPageState extends State<ParkingPage> {
                 markerId: MarkerId('user_location'),
                 position: _userLocation,
                 infoWindow: InfoWindow(title: 'Your Location'),
-                icon: _customUserMarker ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-                anchor: Offset(0.5, 0.5), // Center the marker
+                icon: _customUserMarker ??
+                    BitmapDescriptor.defaultMarkerWithHue(
+                        BitmapDescriptor.hueBlue),
+                anchor: Offset(0.5, 0.5),
               ))
-            // Add the destination marker if navigating
               ..addAll(_isNavigating && _destination != null
                   ? [
                 Marker(
                   markerId: MarkerId('destination'),
                   position: _destination!,
                   infoWindow: InfoWindow(title: 'Destination'),
-                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+                  icon: BitmapDescriptor.defaultMarkerWithHue(
+                      BitmapDescriptor.hueRed),
                 ),
               ]
                   : []),
             cameraTargetBounds: CameraTargetBounds(_intiBounds),
             minMaxZoomPreference: MinMaxZoomPreference(19.5, 22),
           ),
-
-
 
           Positioned(
             top: 20,
@@ -623,7 +672,9 @@ class _ParkingPageState extends State<ParkingPage> {
               child: FloatingActionButton(
                 onPressed: () {
                   if (_mapController != null) {
-                    LatLng targetLocation = _isNavigating ? _userLocation : _center; // Change target based on navigation state
+                    LatLng targetLocation = _isNavigating
+                        ? _userLocation
+                        : _center; // Change target based on navigation state
                     _mapController!.animateCamera(
                       CameraUpdate.newCameraPosition(
                         CameraPosition(

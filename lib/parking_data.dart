@@ -6,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:ui' as ui;
 import 'dart:typed_data';
+import 'dart:async';
 
 class ParkingData {
   static List<Polygon> parkingLotPolygons = [];
@@ -16,7 +17,7 @@ class ParkingData {
   static Map<String, Map<String, dynamic>> parkingLots = {}; // Keep this structure
   static Map<String, Map<String, double>> graph = {}; // Graph representation
 
-  static Future<void> loadGeoJson(Function(String) showDialogCallback) async {
+  static Future<bool> loadGeoJson(Function(String) showDialogCallback) async {
     try {
       // Load GeoJSON files
       String parkingGeoJson = await rootBundle.loadString('assets/parkinglots.geojson');
@@ -24,6 +25,10 @@ class ParkingData {
 
       final parkingData = jsonDecode(parkingGeoJson);
       final List parkingFeatures = parkingData['features'];
+
+      // Clear existing polygons
+      parkingLotPolygons.clear();
+      parkingLots.clear();
 
       CollectionReference parkingCollection = FirebaseFirestore.instance.collection('ParkingLot');
 
@@ -91,10 +96,54 @@ class ParkingData {
       }
 
       initializeGraph();
+
+      return true; // Return true to indicate polygons were updated
     } catch (e) {
       print("Error in loadGeoJson: $e");
+      return false; // Return false to indicate failure
     }
   }
+
+
+  static Stream<void> listenToParkingLotUpdates(Function(String) showDialogCallback, Function(double) refreshUI) {
+    return FirebaseFirestore.instance
+        .collection('ParkingLot')
+        .snapshots()
+        .map((snapshot) {
+      Map<String, bool> newParkingLots = {};
+      for (var doc in snapshot.docs) {
+        newParkingLots[doc.id] = doc.get('vacant') ?? false;
+      }
+
+      // Check if there are any changes in the parking lots
+      bool hasChanges = false;
+      if (parkingLots.length != newParkingLots.length) {
+        hasChanges = true; // Different number of parking lots means change
+      } else {
+        for (var lot in newParkingLots.keys) {
+          if (parkingLots[lot]?['vacant'] != newParkingLots[lot]) {
+            hasChanges = true; // Found a difference
+            break;
+          }
+        }
+      }
+
+      // If there are changes, reload the polygons
+      if (hasChanges) {
+        loadGeoJson(showDialogCallback).then((updated) {
+          if (updated) {
+            refreshUI(19.5); // Pass the desired zoom level to refresh the UI
+            print("Parking lots updated.");
+          }
+        });
+      }
+    });
+  }
+
+
+
+
+
 
   static Future<BitmapDescriptor> getScaledMarkerIcon(int markerSize) async {
     try {
@@ -122,7 +171,7 @@ class ParkingData {
     entrances.forEach((entranceName, entranceLatLng) {
       graph[entranceName] = {};
       parkingLots.forEach((lotName, lotData) {
-        // **Ensure correct access to 'location' and 'vacant'**
+        // Ensure correct access to 'location' and 'vacant'
         if (lotData.containsKey('location') && lotData.containsKey('vacant')) {
           LatLng lotLatLng = lotData['location'];
           double distance = _calculateDistance(entranceLatLng, lotLatLng);
