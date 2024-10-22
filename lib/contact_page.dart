@@ -97,7 +97,9 @@ class _ContactPageState extends State<ContactPage> {
                 },
                 child: Text(
                   "Submit",
-                  style: TextStyle(fontSize: 18),
+                  style: TextStyle(fontSize: 18,
+                  color: Colors.white),
+
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.purple, // Button color

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
-import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore
-import 'package:flutter_slidable/flutter_slidable.dart'; // Import Slidable package
-import 'add_car_plate_page.dart'; // Import the separated add car plate page
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
+import 'add_car_plate_page.dart';
 
 class CarPlateNumberPage extends StatefulWidget {
   @override
@@ -10,11 +10,9 @@ class CarPlateNumberPage extends StatefulWidget {
 }
 
 class _CarPlateNumberPageState extends State<CarPlateNumberPage> {
-  // Reference to the Firestore collection
   final CollectionReference carPlateCollection =
   FirebaseFirestore.instance.collection('CarPlateNumbers');
 
-  // Get the current logged-in user's uid
   final String? userId = FirebaseAuth.instance.currentUser?.uid;
 
   void _deleteCarPlate(String docId) {
@@ -31,7 +29,7 @@ class _CarPlateNumberPageState extends State<CarPlateNumberPage> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Car Plate Number Deleted")),
                   );
-                  Navigator.of(context).pop(); // Close the dialog
+                  Navigator.of(context).pop();
                 }).catchError((error) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Failed to delete car plate number: $error")),
@@ -42,7 +40,7 @@ class _CarPlateNumberPageState extends State<CarPlateNumberPage> {
             ),
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog without deleting
+                Navigator.of(context).pop();
               },
               child: Text("Cancel"),
             ),
@@ -75,7 +73,7 @@ class _CarPlateNumberPageState extends State<CarPlateNumberPage> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text("Car Plate Number Updated")),
                     );
-                    Navigator.of(context).pop(); // Close the dialog
+                    Navigator.of(context).pop();
                   }).catchError((error) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text("Failed to update: $error")),
@@ -91,7 +89,7 @@ class _CarPlateNumberPageState extends State<CarPlateNumberPage> {
             ),
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog without saving
+                Navigator.of(context).pop();
               },
               child: Text("Cancel"),
             ),
@@ -111,7 +109,7 @@ class _CarPlateNumberPageState extends State<CarPlateNumberPage> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
+                Navigator.of(context).pop();
               },
               child: Text("OK"),
             ),
@@ -124,81 +122,103 @@ class _CarPlateNumberPageState extends State<CarPlateNumberPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Car Plate Numbers"),
-        backgroundColor: Colors.purple,
-      ),
-      body: userId == null
-          ? Center(child: Text("No user logged in"))
-          : StreamBuilder<QuerySnapshot>(
-        stream: carPlateCollection.where('userId', isEqualTo: userId).snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}"));
-          }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(child: Text("No car plate numbers found."));
-          }
-
-          final carPlateNumbers = snapshot.data!.docs;
-
-          return ListView.builder(
-            itemCount: carPlateNumbers.length,
-            itemBuilder: (context, index) {
-              final carPlateDoc = carPlateNumbers[index];
-              final carPlateNumber = carPlateDoc['plateNumber'];
-              final docId = carPlateDoc.id;
-              final bool isLocked = carPlateDoc['lock'] ?? false; // Check lock field
-
-              return Slidable(
-                key: ValueKey(docId),
-                endActionPane: ActionPane(
-                  motion: const ScrollMotion(),
-                  children: [
-                    SlidableAction(
-                      onPressed: (context) {
-                        if (isLocked) {
-                          _showClampedWarning(); // Show warning if locked
-                        } else {
-                          _editCarPlate(docId, carPlateNumber);
-                        }
-                      },
-                      icon: Icons.edit,
-                      label: 'Edit',
-                    ),
-                    SlidableAction(
-                      onPressed: (context) {
-                        if (isLocked) {
-                          _showClampedWarning(); // Show warning if locked
-                        } else {
-                          _deleteCarPlate(docId);
-                        }
-                      },
-                      icon: Icons.delete,
-                      label: 'Delete',
-                    ),
-                  ],
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: <Widget>[
+            SizedBox(height: 40), // Spacer to bring the title lower
+            Row(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.arrow_back, color: Colors.purple),
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
-                child: Card(
-                  margin: EdgeInsets.all(8.0),
-                  color: isLocked ? Colors.red : Colors.white, // Set background color based on lock field
-                  child: ListTile(
-                    title: Text(
-                      carPlateNumber,
-                      style: TextStyle(
-                        color: isLocked ? Colors.white : Colors.black, // Set text color based on lock field
-                      ),
-                    ),
-                    subtitle: Text("User ID: ${carPlateDoc['userId']}"),
+                Container(
+                  padding: EdgeInsets.only(left: 45.0), // Add padding to shift title slightly to the left
+                  child: Text(
+                    "Car Plate Numbers",
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                 ),
-              );
-            },
-          );
-        },
+              ],
+            ),
+            SizedBox(height: 0), // Additional space below the title
+            userId == null
+                ? Center(child: Text("No user logged in"))
+                : Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: carPlateCollection.where('userId', isEqualTo: userId).snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text("Error: ${snapshot.error}"));
+                  }
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Center(child: Text("No car plate numbers found."));
+                  }
+
+                  final carPlateNumbers = snapshot.data!.docs;
+
+                  return ListView.builder(
+                    itemCount: carPlateNumbers.length,
+                    itemBuilder: (context, index) {
+                      final carPlateDoc = carPlateNumbers[index];
+                      final carPlateNumber = carPlateDoc['plateNumber'];
+                      final docId = carPlateDoc.id;
+                      final bool isLocked = carPlateDoc['lock'] ?? false;
+
+                      return Slidable(
+                        key: ValueKey(docId),
+                        endActionPane: ActionPane(
+                          motion: const ScrollMotion(),
+                          children: [
+                            SlidableAction(
+                              onPressed: (context) {
+                                if (isLocked) {
+                                  _showClampedWarning();
+                                } else {
+                                  _editCarPlate(docId, carPlateNumber);
+                                }
+                              },
+                              icon: Icons.edit,
+                              label: 'Edit',
+                            ),
+                            SlidableAction(
+                              onPressed: (context) {
+                                if (isLocked) {
+                                  _showClampedWarning();
+                                } else {
+                                  _deleteCarPlate(docId);
+                                }
+                              },
+                              icon: Icons.delete,
+                              label: 'Delete',
+                            ),
+                          ],
+                        ),
+                        child: Card(
+                          margin: EdgeInsets.all(8.0),
+                          color: isLocked ? Colors.red : Colors.white,
+                          child: ListTile(
+                            title: Text(
+                              carPlateNumber,
+                              style: TextStyle(
+                                color: isLocked ? Colors.white : Colors.black,
+                              ),
+                            ),
+                            subtitle: Text("User ID: ${carPlateDoc['userId']}"),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {

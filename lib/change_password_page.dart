@@ -113,15 +113,31 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Change Password"),
-        backgroundColor: Colors.purple,
-      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
+            // Back button and Title
+            SizedBox(height: 40), // Spacer to move the back button and title lower
+            Row(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.arrow_back, color: Colors.purple),
+                  onPressed: () => Navigator.of(context).pop(), // Go back on press
+                ),
+                // Title with padding to slightly shift to the left
+                Container(
+                  padding: EdgeInsets.only(left: 50.0), // Adjust the left padding as needed
+                  child: Text(
+                    "Change Password",
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 40), // Additional spacer
+
+            // Password fields
             TextField(
               controller: oldPasswordController,
               decoration: InputDecoration(
@@ -182,14 +198,17 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
               obscureText: !_confirmPasswordVisible,
             ),
             SizedBox(height: 24.0),
-            ElevatedButton(
-              onPressed: handleChangePassword,
-              child: Text("Change Password"),
-              style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.symmetric(vertical: 14.0),
-                backgroundColor: Colors.purple,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+            SizedBox(
+              width: double.infinity, // Increase the width of the button
+              child: ElevatedButton(
+                onPressed: handleChangePassword,
+                child: Text("Change Password", style: TextStyle(color: Colors.white)), // Change button text color to white
+                style: ElevatedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(vertical: 14.0),
+                  backgroundColor: Colors.purple,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
             ),

@@ -14,66 +14,82 @@ class _InboxPageState extends State<InboxPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Inbox"),
-        backgroundColor: Colors.purple,
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: getNotificationsStream(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(
-              child: Text(
-                "No notifications found",
-                style: TextStyle(fontSize: 18),
+      // No specific background color set, will inherit default color
+      body: Column(
+        children: [
+          // Title centered at the top
+          Padding(
+            padding: const EdgeInsets.only(top: 40.0, bottom: 16.0), // Increased top padding
+            child: Text(
+              "Inbox",
+              style: TextStyle(
+                fontSize: 32, // Increased font size
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
               ),
-            );
-          }
+              textAlign: TextAlign.center,
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: getNotificationsStream(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
 
-          final notifications = snapshot.data!.docs;
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(
+                    child: Text(
+                      "No notifications found",
+                      style: TextStyle(fontSize: 18),
+                    ),
+                  );
+                }
 
-          return ListView.builder(
-            itemCount: notifications.length,
-            itemBuilder: (context, index) {
-              final notification = notifications[index];
-              final title = notification['title'];
-              final message = notification['message'];
-              final read = notification['read'];
+                final notifications = snapshot.data!.docs;
 
-              return Card(
-                color: read ? Colors.white : Colors.grey[300],
-                child: ListTile(
-                  title: Text(title),
-                  subtitle: Text(
-                    message,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  onTap: () async {
-                    // Update the notification's read status to true
-                    await firestore.collection('Notifications').doc(notification.id).update({'read': true});
+                return ListView.builder(
+                  itemCount: notifications.length,
+                  itemBuilder: (context, index) {
+                    final notification = notifications[index];
+                    final title = notification['title'];
+                    final message = notification['message'];
+                    final read = notification['read'];
 
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => NotificationDetailPage(
-                          notificationId: notification.id,
-                          title: title,
-                          message: message,
-                          timestamp: notification['timestamp'].toDate(),
+                    return Card(
+                      color: read ? Colors.white : Colors.grey[300],
+                      child: ListTile(
+                        title: Text(title),
+                        subtitle: Text(
+                          message,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
+                        onTap: () async {
+                          // Update the notification's read status to true
+                          await firestore.collection('Notifications').doc(notification.id).update({'read': true});
+
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => NotificationDetailPage(
+                                notificationId: notification.id,
+                                title: title,
+                                message: message,
+                                timestamp: notification['timestamp'].toDate(),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     );
                   },
-                ),
-              );
-            },
-          );
-        },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

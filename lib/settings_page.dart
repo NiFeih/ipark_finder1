@@ -11,76 +11,130 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Settings"),
-        backgroundColor: Colors.purple, // Set the app bar color
-      ),
-      body: ListView(
-        children: <Widget>[
-          ListTile(
-            title: Text("Profile"),
-            trailing: Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => ProfilePage()),
-              );
-            },
-          ),
-          Divider(), // Add a divider between items
-          ListTile(
-            title: Text("Change Password"),
-            trailing: Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => ChangePasswordPage()),
-              );
-            },
-          ),
-          Divider(),
-          ListTile(
-            title: Text("Car Plate Number"),
-            trailing: Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => CarPlateNumberPage()),
-              );
-            },
-          ),
-          Divider(),
-          ListTile(
-            title: Text("Contact Us"),
-            trailing: Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => ContactUsPage()),
-              );
-            },
-          ),
-          Divider(),
-          ListTile(
-            title: Text("About IICP Park Finder"),
-            trailing: Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => AboutPage()),
-              );
-            },
-          ),
-          Divider(),
-          ListTile(
-            title: Text("Log Out"),
-            trailing: Icon(Icons.chevron_right),
-            onTap: () {
-              _confirmLogout(context); // Call the logout confirmation
-            },
-          ),
-          Divider(),
-        ],
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: <Widget>[
+            // Title centered at the top
+            Padding(
+              padding: const EdgeInsets.only(top: 40.0, bottom: 16.0), // Add some padding at the top
+              child: Text(
+                "Settings",
+                style: TextStyle(
+                  fontSize: 32, // Increased font size
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                children: <Widget>[
+                  ListTile(
+                    title: Text(
+                      "Profile",
+                      style: TextStyle(fontSize: 18), // Increased font size
+                    ),
+                    trailing: Icon(
+                      Icons.chevron_right,
+                      color: Colors.purple, // Change icon color to purple
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => ProfilePage()),
+                      );
+                    },
+                  ),
+                  Divider(), // Add a divider between items
+                  ListTile(
+                    title: Text(
+                      "Change Password",
+                      style: TextStyle(fontSize: 18), // Increased font size
+                    ),
+                    trailing: Icon(
+                      Icons.chevron_right,
+                      color: Colors.purple, // Change icon color to purple
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => ChangePasswordPage()),
+                      );
+                    },
+                  ),
+                  Divider(),
+                  ListTile(
+                    title: Text(
+                      "Car Plate Number",
+                      style: TextStyle(fontSize: 18), // Increased font size
+                    ),
+                    trailing: Icon(
+                      Icons.chevron_right,
+                      color: Colors.purple, // Change icon color to purple
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => CarPlateNumberPage()),
+                      );
+                    },
+                  ),
+                  Divider(),
+                  ListTile(
+                    title: Text(
+                      "Contact Us",
+                      style: TextStyle(fontSize: 18), // Increased font size
+                    ),
+                    trailing: Icon(
+                      Icons.chevron_right,
+                      color: Colors.purple, // Change icon color to purple
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => ContactUsPage()),
+                      );
+                    },
+                  ),
+                  Divider(),
+                  ListTile(
+                    title: Text(
+                      "About IICP Park Finder",
+                      style: TextStyle(fontSize: 18), // Increased font size
+                    ),
+                    trailing: Icon(
+                      Icons.chevron_right,
+                      color: Colors.purple, // Change icon color to purple
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => AboutPage()),
+                      );
+                    },
+                  ),
+                  Divider(),
+                  ListTile(
+                    title: Text(
+                      "Log Out",
+                      style: TextStyle(fontSize: 18), // Increased font size
+                    ),
+                    trailing: Icon(
+                      Icons.chevron_right,
+                      color: Colors.purple, // Change icon color to purple
+                    ),
+                    onTap: () {
+                      _confirmLogout(context); // Call the logout confirmation
+                    },
+                  ),
+                  Divider(),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

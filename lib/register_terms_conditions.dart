@@ -36,31 +36,36 @@ class _TermsConditionsPageState extends State<TermsConditionsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.purple),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          "TNC",
-          style: TextStyle(color: Colors.purple),
-        ),
-        centerTitle: true,
-      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            SizedBox(height: 16),
-            Text(
-              "Terms & Conditions",
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
+            // Spacer to move the content lower
+            SizedBox(height: 40), // Adjust this value to position lower
+
+            // Back button and Title
+            Row(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.arrow_back, color: Colors.purple),
+                  onPressed: () => Navigator.of(context).pop(), // Go back on press
+                ),
+                Expanded(
+                  child: Center(
+                    child: Container(
+                      padding: EdgeInsets.only(left: 0.0), // Add left padding to shift left
+                      child: Text(
+                        "Terms & Conditions",
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             SizedBox(height: 16),
             Expanded(
@@ -171,4 +176,5 @@ These terms shall be governed by and construed in accordance with the laws of Ma
       ),
     );
   }
+
 }

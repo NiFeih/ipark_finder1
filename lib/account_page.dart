@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
 import 'package:cloud_firestore/cloud_firestore.dart'; // Firestore for the database
-import 'package:firebase_auth/firebase_auth.dart'; // Firebase Auth for authentication';
 
 class ProfilePage extends StatefulWidget {
   @override
@@ -78,22 +78,34 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    getUserProfile(); // Load user data when the page loads
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Profile"),
-        backgroundColor: Colors.purple,
-      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: <Widget>[
+            // Spacer to move the back button and title lower
+            SizedBox(height: 40), // Adjust this value to position lower
+
+            // Back button
+            Row(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.arrow_back, color: Colors.purple),
+                  onPressed: () => Navigator.of(context).pop(), // Go back on press
+                ),
+                // Profile title with padding to shift slightly left
+                Container(
+                  padding: EdgeInsets.only(left: 100.0), // Add left padding
+                  child: Text(
+                    "Profile",
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 40), // Additional spacer to separate title and content
+
             // Display Name with Edit Icon
             Row(
               children: [
@@ -103,6 +115,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     focusNode: nameFocusNode,
                     decoration: InputDecoration(
                       labelText: "Name",
+                      labelStyle: TextStyle(fontSize: 20), // Increase label size
                       border: InputBorder.none,
                     ),
                     readOnly: !isEditingName,
@@ -134,6 +147,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     controller: emailController,
                     decoration: InputDecoration(
                       labelText: "Email",
+                      labelStyle: TextStyle(fontSize: 20), // Increase label size
                       border: InputBorder.none,
                     ),
                     readOnly: true,
@@ -151,6 +165,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     focusNode: phoneFocusNode,
                     decoration: InputDecoration(
                       labelText: "Phone Number",
+                      labelStyle: TextStyle(fontSize: 20), // Increase label size
                       border: InputBorder.none,
                     ),
                     readOnly: !isEditingPhone,
@@ -201,4 +216,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
+
+
+
 }

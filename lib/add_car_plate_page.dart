@@ -10,7 +10,8 @@ class AddCarPlateNumberPage extends StatefulWidget {
 
 class _AddCarPlateNumberPageState extends State<AddCarPlateNumberPage> {
   final TextEditingController _carPlateController = TextEditingController();
-  final CollectionReference carPlateCollection =  FirebaseFirestore.instance.collection('CarPlateNumbers');
+  final CollectionReference carPlateCollection =
+  FirebaseFirestore.instance.collection('CarPlateNumbers');
 
   // Get the current logged-in user's uid
   final String? userId = FirebaseAuth.instance.currentUser?.uid;
@@ -54,14 +55,33 @@ class _AddCarPlateNumberPageState extends State<AddCarPlateNumberPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Add Car Plate Number"),
-        backgroundColor: Colors.purple,
-      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            // Increased space to bring the title and back button lower
+            SizedBox(height: 40), // Adjust this value as needed
+
+            // Back button and Title
+            Row(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.arrow_back, color: Colors.purple),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                // Title with padding to slightly shift to the left
+                Container(
+                  padding: EdgeInsets.only(left: 30.0), // Adjust the left padding as needed
+                  child: Text(
+                    "Add Car Plate Number",
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 40), // Additional space before the input field
+
+            // Input field for car plate number
             TextField(
               controller: _carPlateController,
               // Adding input formatters to remove spaces and ensure uppercase
@@ -77,9 +97,10 @@ class _AddCarPlateNumberPageState extends State<AddCarPlateNumberPage> {
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: _saveCarPlateNumber,
-              child: Text("Save"),
+              child: Text("Add", style: TextStyle(color: Colors.white)), // Change button text color to white
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.purple,
+                padding: EdgeInsets.symmetric(vertical: 14.0),
               ),
             ),
           ],
