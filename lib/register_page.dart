@@ -79,6 +79,18 @@ class _RegisterPageState extends State<RegisterPage> {
     String studentID = email.split('@')[0];
 
     try {
+      // Check if the car plate number already exists in Firestore
+      QuerySnapshot existingCarPlates = await FirebaseFirestore.instance
+          .collection('CarPlateNumbers')
+          .where('plateNumber', isEqualTo: carPlate)
+          .get();
+
+      if (existingCarPlates.docs.isNotEmpty) {
+        // Show error if the car plate number already exists
+        _showDialog("Error", "This car plate number already exists.");
+        return;
+      }
+
       // Register the user with Firebase Authentication
       UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
@@ -107,6 +119,7 @@ class _RegisterPageState extends State<RegisterPage> {
       _showDialog("Error", e.toString());
     }
   }
+
 
   void _showDialog(String title, String content) {
     showDialog(
@@ -223,7 +236,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: handleRegister,
-                  child: Text("Register", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  child: Text("Register", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                   style: ElevatedButton.styleFrom(
                     padding: EdgeInsets.symmetric(vertical: 14.0),
                     backgroundColor: Colors.purple,

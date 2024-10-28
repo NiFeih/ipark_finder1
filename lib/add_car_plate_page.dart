@@ -10,11 +10,7 @@ class AddCarPlateNumberPage extends StatefulWidget {
 
 class _AddCarPlateNumberPageState extends State<AddCarPlateNumberPage> {
   final TextEditingController _carPlateController = TextEditingController();
-  final CollectionReference carPlateCollection =
-  FirebaseFirestore.instance.collection('CarPlateNumbers');
-
-  // Get the current logged-in user's uid
-  final String? userId = FirebaseAuth.instance.currentUser?.uid;
+  final CollectionReference carPlateCollection = FirebaseFirestore.instance.collection('CarPlateNumbers');
 
   @override
   void dispose() {
@@ -22,20 +18,31 @@ class _AddCarPlateNumberPageState extends State<AddCarPlateNumberPage> {
     super.dispose();
   }
 
-  void _saveCarPlateNumber() {
+  Future<void> _saveCarPlateNumber() async {
     String carPlateNumber = _carPlateController.text.trim();
 
-    if (carPlateNumber.isNotEmpty && userId != null) {
+    if (carPlateNumber.isNotEmpty) {
+      // Check if the car plate number already exists in the database
+      QuerySnapshot existingPlates = await carPlateCollection.where('plateNumber', isEqualTo: carPlateNumber).get();
+
+      if (existingPlates.docs.isNotEmpty) {
+        // Show validation error if the car plate number already exists
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Car plate number already exists.")),
+        );
+        return;
+      }
+
       // Close the add page immediately after the user presses save
       Navigator.pop(context, true);
 
-      // Save to Firestore with the current user's uid
+      // Save to Firestore
       carPlateCollection.add({
         'plateNumber': carPlateNumber,
-        'userId': userId,
+        'userId': FirebaseAuth.instance.currentUser?.uid,
         'lock': false,
       }).then((value) {
-        // Show a snack bar after the user has been redirected to the CarPlateNumberPage
+        // Show a snack bar after adding the car plate number
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Car Plate Number Added")),
         );

@@ -24,7 +24,7 @@ class _ParkingPageState extends State<ParkingPage> {
   BitmapDescriptor? _customUserMarker; // Add this to hold the custom marker
   double _currentZoom = 17.0; // Track the current zoom level
   Timer? _navigationMonitorTimer; // Add this Timer to track the navigation monitoring timer
-
+  String? _selectedLotId;
   bool _hasReachedDestination = false;
 
   // Keep track of the current bearing
@@ -42,46 +42,44 @@ class _ParkingPageState extends State<ParkingPage> {
     southwest: LatLng(5.3407917, 100.2809528),
     northeast: LatLng(5.3424806, 100.2827500),
   );
-
+  final double proximityRadius = 100; // Define the proximity radius in meters
   final LatLng _center = LatLng(5.3416, 100.2818);
   LatLng _userLocation = LatLng(5.34165, 100.28212); // User's fixed location
+  // LatLng _userLocation = LatLng(5.3417, 100.2817); // User's fixed location centre of inti
+  // LatLng _userLocation = LatLng(5.341036, 100.282686); // User's fixed location outside of inti
 
   final String _mapStyle = '''
-  [
-    {
-      "featureType": "poi",
-      "stylers": [
-        { "visibility": "off" }
-      ]
-    }
-  ]
+[
+  {
+    "featureType": "poi",
+    "stylers": [
+      { "visibility": "off" }
+    ]
+  },
+  {
+    "featureType": "poi.school",
+    "stylers": [
+      { "visibility": "on" }
+    ]
+  }
+]
+
   ''';
 
   @override
   void initState() {
     super.initState();
 
-    ParkingData.listenToParkingLotUpdates(_showParkingLotDialog, (double zoomLevel) {
+    // Update _showParkingLotDialog to accept the additional parameter
+    ParkingData.listenToParkingLotUpdates(_showParkingLotDialog, (double zoomLevel, String lotId) {
       if (mounted) {
         setState(() {
           _currentZoom = zoomLevel; // Update the current zoom level
+          _selectedLotId = lotId;   // Optionally, store the changed lot ID if needed
         });
-
-        // // Animate the camera to the current position with the new zoom level
-        // if (_mapController != null) {
-        //   _mapController!.animateCamera(CameraUpdate.newCameraPosition(
-        //     CameraPosition(
-        //       target: _userLocation, // or any other target you want
-        //       zoom: _currentZoom,
-        //       bearing: 0, // Adjust bearing if necessary
-        //     ),
-        //   ));
-        // } else {
-        //   print("Map controller is not initialized yet.");
-        // }
       }
     }).listen((_) {
-      // Optional: handle additional state changes
+      // Optional: handle additional state changes if necessary
     });
 
     // Load initial parking lot data
@@ -161,6 +159,26 @@ class _ParkingPageState extends State<ParkingPage> {
     }
   }
 
+
+  // Function to calculate distance between two LatLng points
+  double _calculateDistance(LatLng start, LatLng end) {
+    const double earthRadius = 6371000; // Earth radius in meters
+    double dLat = _degreesToRadians(end.latitude - start.latitude);
+    double dLon = _degreesToRadians(end.longitude - start.longitude);
+
+    double a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_degreesToRadians(start.latitude)) * math.cos(_degreesToRadians(end.latitude)) *
+            math.sin(dLon / 2) * math.sin(dLon / 2);
+
+    double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+
+    return earthRadius * c; // Return distance in meters
+  }
+
+  double _degreesToRadians(double degrees) {
+    return degrees * math.pi / 180;
+  }
+
   void _showParkingLotDialog(String parkingLotName) {
     bool isVacant = ParkingData.parkingLots[parkingLotName]?['vacant'] ?? false;
     if (isVacant) {
@@ -195,32 +213,39 @@ class _ParkingPageState extends State<ParkingPage> {
     }
   }
 
-  // Show a dialog box displaying the nearest parking lot
-  void _showNearestParkingLotDialog(String entranceName) {
-    String? nearestParkingLot = ParkingData.findShortestPath(entranceName);
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text("Nearest Parking Lot"),
-          content: Text(
-            nearestParkingLot != null
-                ? "The nearest parking lot to $entranceName is: $nearestParkingLot"
-                : "No nearby parking lot found.",
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
-              },
-              child: Text("OK"),
-            ),
-          ],
-        );
-      },
-    );
+  void _showNearestParkingLotDialog(String parkingLotName) {
+    bool isVacant = ParkingData.parkingLots[parkingLotName]?['vacant'] ?? false;
+    if (isVacant) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text("The nearest parking lot to the entrance is $parkingLotName"),
+            content: Text("Do you want to navigate to $parkingLotName?"),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await _navigateToParkingLot(parkingLotName);
+                },
+                child: Text("Confirm"),
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("$parkingLotName is currently not vacant.")),
+      );
+    }
   }
-
   // Calculate the bearing from one LatLng to another
   double _calculateBearing(LatLng start, LatLng end) {
     double startLat = start.latitude * (math.pi / 180.0);
@@ -578,7 +603,7 @@ class _ParkingPageState extends State<ParkingPage> {
   void _onEntranceTapped(String entranceName) async {
     String? nearestParkingLot = ParkingData.findShortestPath(entranceName);
     if (nearestParkingLot != null) {
-      _showParkingLotDialog(nearestParkingLot);
+      _showNearestParkingLotDialog(nearestParkingLot);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("No nearby vacant parking lot found.")),

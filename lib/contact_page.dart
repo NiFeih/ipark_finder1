@@ -73,7 +73,7 @@ class _ContactPageState extends State<ContactPage> {
                 labelText: 'Enter car plate number',
               ),
               onChanged: (value) {
-                // Convert to uppercase and remove invalid characters
+                // Convert to uppercase and remove invalid characters (allow only letters and numbers)
                 String formattedValue = value.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
                 carPlateController.value = TextEditingValue(
                   text: formattedValue,
@@ -97,9 +97,7 @@ class _ContactPageState extends State<ContactPage> {
                 },
                 child: Text(
                   "Submit",
-                  style: TextStyle(fontSize: 18,
-                  color: Colors.white),
-
+                  style: TextStyle(fontSize: 18, color: Colors.white),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.purple, // Button color
@@ -196,7 +194,6 @@ class _ContactPageState extends State<ContactPage> {
       ),
     );
   }
-
 
   // Helper function to show dialog
   void _showDialog(BuildContext context, String title, String message) {

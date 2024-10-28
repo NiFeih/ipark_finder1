@@ -105,44 +105,76 @@ class ParkingData {
   }
 
 
-  static Stream<void> listenToParkingLotUpdates(Function(String) showDialogCallback, Function(double) refreshUI) {
+  static Stream<void> listenToParkingLotUpdates(Function(String) showDialogCallback, Function(double, String) refreshUI) {
     return FirebaseFirestore.instance
         .collection('ParkingLot')
         .snapshots()
         .map((snapshot) {
-      Map<String, bool> newParkingLots = {};
+      List<String> changedLots = [];
+
+      // Build the new parking lots map with updated vacancy status only
+      Map<String, Map<String, dynamic>> newParkingLots = {};
+
       for (var doc in snapshot.docs) {
-        newParkingLots[doc.id] = doc.get('vacant') ?? false;
-      }
+        String lotId = doc.id;
+        bool isVacant = doc.get('vacant') ?? false;
 
-      // Check if there are any changes in the parking lots
-      bool hasChanges = false;
-      if (parkingLots.length != newParkingLots.length) {
-        hasChanges = true; // Different number of parking lots means change
-      } else {
-        for (var lot in newParkingLots.keys) {
-          if (parkingLots[lot]?['vacant'] != newParkingLots[lot]) {
-            hasChanges = true; // Found a difference
-            break;
-          }
+        // Check if the vacancy status has changed
+        if (parkingLots[lotId]?['vacant'] != isVacant) {
+          changedLots.add(lotId); // Add only the changed lots
         }
+
+        // Update the newParkingLots structure
+        newParkingLots[lotId] = {
+          'vacant': isVacant,
+          'location': parkingLots[lotId]?['location'] ?? LatLng(0, 0), // Keep existing location if available
+          'coordinates': parkingLots[lotId]?['coordinates'] ?? [], // Keep existing coordinates if available
+        };
       }
 
-      // If there are changes, reload the polygons
-      if (hasChanges) {
-        loadGeoJson(showDialogCallback).then((updated) {
-          if (updated) {
-            refreshUI(19.5); // Pass the desired zoom level to refresh the UI
-            print("Parking lots updated.");
-          }
-        });
+      // If there are any changes, update only the affected lots
+      if (changedLots.isNotEmpty) {
+        // Update the main parkingLots map
+        parkingLots = {...parkingLots, ...newParkingLots};
+
+        // Reload only the changed polygons
+        for (var lot in changedLots) {
+          _updatePolygonForLot(lot, showDialogCallback);
+          refreshUI(19.5, lot); // Refresh only the updated lot
+          print("Parking lot $lot updated.");
+        }
       }
     });
   }
 
+// New helper function to update polygon for a specific lot
+  static Future<void> _updatePolygonForLot(String lotId, Function(String) showDialogCallback) async {
+    DocumentSnapshot document = await FirebaseFirestore.instance.collection('ParkingLot').doc(lotId).get();
 
+    if (document.exists) {
+      bool isVacant = document.get('vacant');
+      Color polygonColor = isVacant ? Colors.green.withOpacity(0.5) : Colors.red.withOpacity(0.5);
 
+      // Find the polygon associated with the lotId and update its color
+      int polygonIndex = parkingLotPolygons.indexWhere((polygon) => polygon.polygonId.value == lotId);
+      if (polygonIndex >= 0) {
+        Polygon updatedPolygon = Polygon(
+          polygonId: PolygonId(lotId),
+          points: parkingLots[lotId]!['coordinates'],
+          strokeColor: polygonColor,
+          fillColor: polygonColor,
+          strokeWidth: 2,
+          consumeTapEvents: true,
+          onTap: () {
+            showDialogCallback(lotId);
+          },
+        );
 
+        // Replace the old polygon with the updated one
+        parkingLotPolygons[polygonIndex] = updatedPolygon;
+      }
+    }
+  }
 
 
   static Future<BitmapDescriptor> getScaledMarkerIcon(int markerSize) async {

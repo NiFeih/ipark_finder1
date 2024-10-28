@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'terms_conditions_text.dart'; // Import the terms and conditions text
 
 class AboutPage extends StatelessWidget {
   @override
@@ -27,13 +28,22 @@ class AboutPage extends StatelessWidget {
                 ),
               ],
             ),
-            SizedBox(height: 40), // Additional space before the about information
+            SizedBox(height: 40), // Additional space before the terms and conditions text
 
-            // Center the about text
-            Center(
-              child: Text(
-                "About IICP Park Finder",
-                style: TextStyle(fontSize: 24),
+            // Display the terms and conditions text
+            Expanded(
+              child: SingleChildScrollView(
+                child: Container(
+                  padding: EdgeInsets.all(12.0),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    termsAndConditions, // Use the imported terms and conditions text
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
               ),
             ),
           ],

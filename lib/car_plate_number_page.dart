@@ -61,24 +61,49 @@ class _CarPlateNumberPageState extends State<CarPlateNumberPage> {
           content: TextField(
             controller: _controller,
             decoration: InputDecoration(labelText: "Car Plate Number"),
+            onChanged: (value) {
+              // Format input: Allow only uppercase letters and numbers, remove symbols and spaces
+              String formattedValue = value.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+              _controller.value = TextEditingValue(
+                text: formattedValue,
+                selection: TextSelection.collapsed(offset: formattedValue.length), // Keep cursor at the end
+              );
+            },
           ),
           actions: [
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 String newPlateNumber = _controller.text.trim();
+
                 if (newPlateNumber.isNotEmpty) {
-                  carPlateCollection.doc(docId).update({
-                    'plateNumber': newPlateNumber,
-                  }).then((_) {
+                  // Check if the new plate number already exists in Firestore, including the current user's entry
+                  QuerySnapshot existingPlateNumbers = await carPlateCollection
+                      .where('plateNumber', isEqualTo: newPlateNumber)
+                      .get(); // Check for all users
+
+                  // Check if the document ID matches the one being edited to allow the same number
+                  bool exists = existingPlateNumbers.docs.any((doc) => doc.id != docId);
+
+                  if (exists) {
+                    // Show error if plate number already exists
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Car Plate Number Updated")),
+                      SnackBar(content: Text("This car plate number already exists.")),
                     );
-                    Navigator.of(context).pop();
-                  }).catchError((error) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Failed to update: $error")),
-                    );
-                  });
+                  } else {
+                    // Update the car plate number
+                    carPlateCollection.doc(docId).update({
+                      'plateNumber': newPlateNumber,
+                    }).then((_) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Car Plate Number Updated")),
+                      );
+                      Navigator.of(context).pop();
+                    }).catchError((error) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Failed to update: $error")),
+                      );
+                    });
+                  }
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("Please enter a valid car plate number")),
@@ -98,6 +123,10 @@ class _CarPlateNumberPageState extends State<CarPlateNumberPage> {
       },
     );
   }
+
+
+
+
 
   void _showClampedWarning() {
     showDialog(
