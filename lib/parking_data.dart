@@ -20,7 +20,7 @@ class ParkingData {
   static Future<bool> loadGeoJson(Function(String) showDialogCallback) async {
     try {
       // Load GeoJSON files
-      String parkingGeoJson = await rootBundle.loadString('assets/parkinglots.geojson');
+      String parkingGeoJson = await rootBundle.loadString('assets/parkinglot.geojson');
       String entranceGeoJson = await rootBundle.loadString('assets/entrance.geojson');
 
       final parkingData = jsonDecode(parkingGeoJson);
@@ -42,11 +42,19 @@ class ParkingData {
         String parkingLotName = feature['properties']['Name'];
         DocumentSnapshot document = await parkingCollection.doc(parkingLotName).get();
 
-        Color polygonColor = Colors.blue.withOpacity(0.3);
+        Color polygonColor;
         bool isVacant = false;
         if (document.exists) {
           isVacant = document.get('vacant');
-          polygonColor = isVacant ? Colors.green.withOpacity(0.5) : Colors.red.withOpacity(0.5);
+          // Set color based on vacancy status
+          if (parkingLotName == "OKU1" || parkingLotName == "OKU2") {
+            polygonColor = isVacant ? Colors.blue.withOpacity(0.5) : Colors.red.withOpacity(0.5);
+          } else {
+            polygonColor = isVacant ? Colors.green.withOpacity(0.5) : Colors.red.withOpacity(0.5);
+          }
+        } else {
+          // Default color if the document doesn't exist
+          polygonColor = Colors.grey.withOpacity(0.5);
         }
 
         parkingLotPolygons.add(
@@ -69,7 +77,7 @@ class ParkingData {
         parkingLots[parkingLotName] = {
           'location': points[0],  // Storing LatLng as 'location'
           'vacant': isVacant,      // Storing vacancy status as 'vacant'
-          'coordinates': points  // List of LatLng points representing the corners
+          'coordinates': points     // List of LatLng points representing the corners
         };
       }
 
@@ -105,7 +113,10 @@ class ParkingData {
   }
 
 
-  static Stream<void> listenToParkingLotUpdates(Function(String) showDialogCallback, Function(double, String) refreshUI) {
+
+// parking_data.dart
+
+  static Stream<void> listenToParkingLotUpdates(Function(String) showDialogCallback) {
     return FirebaseFirestore.instance
         .collection('ParkingLot')
         .snapshots()
@@ -140,20 +151,28 @@ class ParkingData {
         // Reload only the changed polygons
         for (var lot in changedLots) {
           _updatePolygonForLot(lot, showDialogCallback);
-          refreshUI(19.5, lot); // Refresh only the updated lot
           print("Parking lot $lot updated.");
         }
+
+        // Since we're mapping to void, we don't emit any specific data
       }
     });
   }
 
-// New helper function to update polygon for a specific lot
+
   static Future<void> _updatePolygonForLot(String lotId, Function(String) showDialogCallback) async {
     DocumentSnapshot document = await FirebaseFirestore.instance.collection('ParkingLot').doc(lotId).get();
 
     if (document.exists) {
       bool isVacant = document.get('vacant');
-      Color polygonColor = isVacant ? Colors.green.withOpacity(0.5) : Colors.red.withOpacity(0.5);
+      Color polygonColor;
+
+      // Set color based on lotId and vacancy status
+      if (lotId == "OKU1" || lotId == "OKU2") {
+        polygonColor = isVacant ? Colors.blue.withOpacity(0.5) : Colors.red.withOpacity(0.5);
+      } else {
+        polygonColor = isVacant ? Colors.green.withOpacity(0.5) : Colors.red.withOpacity(0.5);
+      }
 
       // Find the polygon associated with the lotId and update its color
       int polygonIndex = parkingLotPolygons.indexWhere((polygon) => polygon.polygonId.value == lotId);
@@ -175,6 +194,8 @@ class ParkingData {
       }
     }
   }
+
+
 
 
   static Future<BitmapDescriptor> getScaledMarkerIcon(int markerSize) async {
@@ -228,7 +249,7 @@ class ParkingData {
     return R * c;
   }
 
-  // Dijkstra's algorithm for shortest path, only considering vacant parking lots
+// Dijkstra's algorithm for shortest path, only considering vacant parking lots
   static String? findShortestPath(String startNode) {
     if (graph[startNode] == null) {
       print("Error: Start node $startNode does not exist in the graph.");
@@ -273,12 +294,12 @@ class ParkingData {
       });
     }
 
-    // Find the nearest vacant parking lot from the starting node
+    // Find the nearest vacant parking lot from the starting node, excluding OKU1 and OKU2
     String? nearestParkingLot;
     double shortestPathDistance = double.infinity;
     parkingLots.forEach((parkingLot, lotData) {
-      // Only consider vacant parking lots
-      if (lotData['vacant'] && distances[parkingLot]! < shortestPathDistance) {
+      // Only consider vacant parking lots, excluding OKU1 and OKU2
+      if (lotData['vacant'] && distances[parkingLot]! < shortestPathDistance && parkingLot != "OKU1" && parkingLot != "OKU2") {
         shortestPathDistance = distances[parkingLot]!;
         nearestParkingLot = parkingLot;
       }
@@ -292,4 +313,5 @@ class ParkingData {
       return null;
     }
   }
+
 }

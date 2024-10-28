@@ -79,6 +79,7 @@ flutter:
     - assets/CroppedFloorPlanLevel2.jpg  # Add your custom PNG map image
     - assets/Cropped_Floor_plan_Level_2.jpg
     - assets/parkinglots.geojson
+    - assets/parkinglot.geojson
     - assets/path.geojson
     - assets/path_new.geojson
     - assets/path_new_new.geojson

@@ -33,6 +33,8 @@ class _ParkingPageState extends State<ParkingPage> {
   // Add a StreamSubscription to manage the Firestore listener
   StreamSubscription? _parkingLotListener;
 
+  Timer? _refreshTimer; // Add this line to store the Timer
+
 
   // Add this line to declare the subscription variable
   StreamSubscription<void>? _parkingLotSubscription;
@@ -70,16 +72,24 @@ class _ParkingPageState extends State<ParkingPage> {
   void initState() {
     super.initState();
 
-    // Update _showParkingLotDialog to accept the additional parameter
-    ParkingData.listenToParkingLotUpdates(_showParkingLotDialog, (double zoomLevel, String lotId) {
+    // Set up a timer to refresh the UI every 5 seconds
+    _refreshTimer = Timer.periodic(Duration(seconds: 5), (Timer timer) {
       if (mounted) {
         setState(() {
-          _currentZoom = zoomLevel; // Update the current zoom level
-          _selectedLotId = lotId;   // Optionally, store the changed lot ID if needed
+          // Optionally, add logic here if you need to update any other data
         });
       }
-    }).listen((_) {
-      // Optional: handle additional state changes if necessary
+    });
+
+
+    // Listen to parking lot updates without additional parameters
+    _parkingLotSubscription = ParkingData.listenToParkingLotUpdates(_showParkingLotDialog)
+        .listen((_) {
+      if (mounted) {
+        setState(() {
+          // UI will refresh without needing to update specific variables
+        });
+      }
     });
 
     // Load initial parking lot data
@@ -93,6 +103,8 @@ class _ParkingPageState extends State<ParkingPage> {
 
   @override
   void dispose() {
+
+    _refreshTimer?.cancel();
     _parkingLotSubscription?.cancel(); // Cancel subscription on dispose
     super.dispose();
   }
@@ -187,7 +199,7 @@ class _ParkingPageState extends State<ParkingPage> {
         builder: (BuildContext context) {
           return AlertDialog(
             title: Text("Navigate to $parkingLotName"),
-            content: Text("Do you want to navigate to $parkingLotName?"),
+            content: Text("Do you want to navigate to lot $parkingLotName?"),
             actions: [
               TextButton(
                 onPressed: () {
@@ -221,7 +233,7 @@ class _ParkingPageState extends State<ParkingPage> {
         builder: (BuildContext context) {
           return AlertDialog(
             title: Text("The nearest parking lot to the entrance is $parkingLotName"),
-            content: Text("Do you want to navigate to $parkingLotName?"),
+            content: Text("Do you want to navigate to lot $parkingLotName?"),
             actions: [
               TextButton(
                 onPressed: () {

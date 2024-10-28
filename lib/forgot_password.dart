@@ -42,7 +42,20 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Forgot Password"),
+        // Set the color for the back button and other icons
+        iconTheme: IconThemeData(color: Colors.purple), // Change back button color to purple
+        flexibleSpace: Center(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 25), // Adjust top padding as needed
+            child: Text(
+              "Forgot Password",
+              style: TextStyle(fontSize: 25, fontWeight: FontWeight.w500),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+        // Adjust the height of the AppBar if needed
+        toolbarHeight: 80, // Change this to lower or raise the AppBar height
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -64,11 +77,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             : Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // New text above the TextField
             Text(
-              "Forgot Password",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              "Please enter your student email to reset your password.",
+              style: TextStyle(fontSize: 16, color: Colors.black54),
+              textAlign: TextAlign.center,
             ),
-            SizedBox(height: 20),
+            SizedBox(height: 20), // Space between the text and TextField
             TextField(
               controller: emailController,
               decoration: InputDecoration(
@@ -89,6 +104,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   );
                 }
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple, // Button background color
+                foregroundColor: Colors.white, // Button text color
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8), // Squarish button
+                ),
+              ),
               child: Text("Next"),
             ),
           ],
@@ -96,6 +118,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       ),
     );
   }
+
+
+
 
   @override
   void dispose() {

@@ -15,100 +15,122 @@ class _ContactPageState extends State<ContactPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: <Widget>[
-            // Title
-            Text(
-              "Contact",
-              style: TextStyle(
-                fontSize: 30,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 16),
+      body: SingleChildScrollView( // Add SingleChildScrollView
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              // Add padding above the title
+              SizedBox(height: 40), // Adjust the height as needed
 
-            // Instructional text
-            Text(
-              "Someone’s car blocking you?\nType the car plate number below to contact them!",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.black54,
-              ),
-            ),
-            SizedBox(height: 40),
-
-            // Toggle Switch for showing plate number
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "Show my plate number",
-                  style: TextStyle(fontSize: 16),
+              // Title
+              Text(
+                "Contact",
+                style: TextStyle(
+                  fontSize: 30,
+                  fontWeight: FontWeight.bold,
                 ),
-                Switch(
-                  value: showPlateNumber,
-                  onChanged: (value) {
-                    setState(() {
-                      showPlateNumber = value; // Update the toggle state
-                    });
-                    // Optionally, update the Firestore document here
-                    _updateShowPlateNumber(value);
-                  },
-                ),
-              ],
-            ),
-
-            SizedBox(height: 20),
-
-            // Text Field for car plate number
-            TextField(
-              controller: carPlateController,
-              decoration: InputDecoration(
-                border: OutlineInputBorder(),
-                labelText: 'Enter car plate number',
               ),
-              onChanged: (value) {
-                // Convert to uppercase and remove invalid characters (allow only letters and numbers)
-                String formattedValue = value.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
-                carPlateController.value = TextEditingValue(
-                  text: formattedValue,
-                  selection: TextSelection.collapsed(offset: formattedValue.length), // Keep the cursor at the end
-                );
-              },
-            ),
-            SizedBox(height: 30),
+              SizedBox(height: 80),
 
-            // Submit Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  String carPlate = carPlateController.text.trim();
-                  if (carPlate.isNotEmpty) {
-                    _findOwnerContact(carPlate, context); // Call the function to find the contact
-                  } else {
-                    _showDialog(context, "Error", "Please enter a valid car plate number.");
-                  }
+              // Information text about showing the plate number
+              Text(
+                "Show your plate number if you double park \nso that people can find you!",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w400
+                ),
+              ),
+              SizedBox(height: 10),
+
+              // Toggle Switch for showing plate number
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                    child: Text(
+                      "Show my plate number",
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                    child: Switch(
+                      value: showPlateNumber,
+                      onChanged: (value) {
+                        setState(() {
+                          showPlateNumber = value; // Update the toggle state
+                        });
+                        _updateShowPlateNumber(value);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+
+              SizedBox(height: 50),
+
+              // Instructional text
+              Text(
+                "Someone’s car blocking you?\nType the car plate number below to contact them!",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              SizedBox(height: 40),
+
+              // Text Field for car plate number
+              TextField(
+                controller: carPlateController,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(),
+                  labelText: 'Enter car plate number',
+                ),
+                onChanged: (value) {
+                  // Convert to uppercase and remove invalid characters
+                  String formattedValue = value.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+                  carPlateController.value = TextEditingValue(
+                    text: formattedValue,
+                    selection: TextSelection.collapsed(offset: formattedValue.length),
+                  );
                 },
-                child: Text(
-                  "Submit",
-                  style: TextStyle(fontSize: 18, color: Colors.white),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.purple, // Button color
-                  padding: EdgeInsets.symmetric(vertical: 14), // Button padding
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              ),
+              SizedBox(height: 30),
+
+              // Submit Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    String carPlate = carPlateController.text.trim();
+                    if (carPlate.isNotEmpty) {
+                      _findOwnerContact(carPlate, context);
+                    } else {
+                      _showDialog(context, "Error", "Please enter a valid car plate number.");
+                    }
+                  },
+                  child: Text(
+                    "Submit",
+                    style: TextStyle(fontSize: 18, color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple,
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
