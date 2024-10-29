@@ -26,6 +26,12 @@ class _ProfilePageState extends State<ProfilePage> {
   String originalName = "";
   String originalPhone = "";
 
+  @override
+  void initState() {
+    super.initState();
+    getUserProfile(); // Fetch user profile data when the widget initializes
+  }
+
   // Fetch user data from Firestore
   Future<void> getUserProfile() async {
     User? user = auth.currentUser;
@@ -84,19 +90,17 @@ class _ProfilePageState extends State<ProfilePage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: <Widget>[
-            // Spacer to move the back button and title lower
-            SizedBox(height: 40), // Adjust this value to position lower
+            SizedBox(height: 40), // Spacer to move the back button and title lower
 
             // Back button
             Row(
               children: [
                 IconButton(
                   icon: Icon(Icons.arrow_back, color: Colors.purple),
-                  onPressed: () => Navigator.of(context).pop(), // Go back on press
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
-                // Profile title with padding to shift slightly left
                 Container(
-                  padding: EdgeInsets.only(left: 100.0), // Add left padding
+                  padding: EdgeInsets.only(left: 100.0),
                   child: Text(
                     "Profile",
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
@@ -104,7 +108,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ],
             ),
-            SizedBox(height: 40), // Additional spacer to separate title and content
+            SizedBox(height: 40), // Additional spacer
 
             // Display Name with Edit Icon
             Row(
@@ -115,7 +119,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     focusNode: nameFocusNode,
                     decoration: InputDecoration(
                       labelText: "Name",
-                      labelStyle: TextStyle(fontSize: 20), // Increase label size
+                      labelStyle: TextStyle(fontSize: 20),
                       border: InputBorder.none,
                     ),
                     readOnly: !isEditingName,
@@ -127,7 +131,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     setState(() {
                       isEditingName = !isEditingName;
                       if (isEditingName) {
-                        nameFocusNode.requestFocus(); // Show the keyboard for name editing
+                        nameFocusNode.requestFocus();
                       } else {
                         nameFocusNode.unfocus();
                         updateUserProfile();
@@ -139,6 +143,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
             Divider(),
+
             // Display Email (Email should not be editable)
             Row(
               children: [
@@ -147,7 +152,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     controller: emailController,
                     decoration: InputDecoration(
                       labelText: "Email",
-                      labelStyle: TextStyle(fontSize: 20), // Increase label size
+                      labelStyle: TextStyle(fontSize: 20),
                       border: InputBorder.none,
                     ),
                     readOnly: true,
@@ -156,6 +161,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
             Divider(),
+
             // Display Phone Number with Edit Icon
             Row(
               children: [
@@ -165,7 +171,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     focusNode: phoneFocusNode,
                     decoration: InputDecoration(
                       labelText: "Phone Number",
-                      labelStyle: TextStyle(fontSize: 20), // Increase label size
+                      labelStyle: TextStyle(fontSize: 20),
                       border: InputBorder.none,
                     ),
                     readOnly: !isEditingPhone,
@@ -177,7 +183,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     setState(() {
                       isEditingPhone = !isEditingPhone;
                       if (isEditingPhone) {
-                        phoneFocusNode.requestFocus(); // Show the keyboard for phone editing
+                        phoneFocusNode.requestFocus();
                       } else {
                         phoneFocusNode.unfocus();
                         updateUserProfile();
@@ -189,6 +195,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
             Divider(),
+
             // Show Save and Cancel buttons when editing
             if (showSaveCancelButtons) ...[
               Row(
@@ -216,7 +223,4 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
-
-
-
 }

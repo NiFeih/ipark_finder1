@@ -128,8 +128,10 @@ class NotificationDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Notification Details"),
-        backgroundColor: Colors.purple,
+        title: Text("Notification Details",
+          textAlign: TextAlign.center,),
+        centerTitle: true,
+        iconTheme: IconThemeData(color: Colors.purple),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -143,7 +145,8 @@ class NotificationDetailPage extends StatelessWidget {
             SizedBox(height: 8),
             Text(
               "Sent on: ${DateFormat('MMMM dd, yyyy \'at\' hh:mm:ss a').format(timestamp.add(Duration(hours: 8)))}",
-              style: TextStyle(color: Colors.grey),
+              style: TextStyle(color: Colors.black54, fontSize: 18),
+
             ),
             SizedBox(height: 16),
             Text(

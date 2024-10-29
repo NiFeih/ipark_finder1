@@ -155,6 +155,7 @@ class _RegisterPageState extends State<RegisterPage> {
           'uid': user.uid,
           'studentID': studentID, // Add the studentID
           'role': 'student', // Add role
+          'show': true
         });
 
         // Add the car plate number to the CarPlateNumbers collection

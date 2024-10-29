@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
-import 'package:url_launcher/url_launcher.dart'; // Import url_launcher
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ContactPage extends StatefulWidget {
   @override
@@ -10,21 +10,41 @@ class ContactPage extends StatefulWidget {
 
 class _ContactPageState extends State<ContactPage> {
   final TextEditingController carPlateController = TextEditingController();
-  bool showPlateNumber = false; // Toggle state for showing car plate numbers
+  bool showPlateNumber = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadShowPlateNumber(); // Load the show value from Firestore when the page loads
+  }
+
+  Future<void> _loadShowPlateNumber() async {
+    try {
+      String uid = FirebaseAuth.instance.currentUser!.uid;
+
+      // Fetch the user's show value from Firestore
+      DocumentSnapshot userSnapshot = await FirebaseFirestore.instance.collection('Users').doc(uid).get();
+
+      if (userSnapshot.exists && userSnapshot.data() != null) {
+        setState(() {
+          showPlateNumber = userSnapshot['show'] ?? false;
+        });
+      }
+    } catch (e) {
+      print("Error loading showPlateNumber: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SingleChildScrollView( // Add SingleChildScrollView
+      body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: <Widget>[
-              // Add padding above the title
-              SizedBox(height: 40), // Adjust the height as needed
-
-              // Title
+              SizedBox(height: 40),
               Text(
                 "Contact",
                 style: TextStyle(
@@ -33,20 +53,16 @@ class _ContactPageState extends State<ContactPage> {
                 ),
               ),
               SizedBox(height: 80),
-
-              // Information text about showing the plate number
               Text(
                 "Show your plate number if you double park \nso that people can find you!",
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.black87,
-                  fontWeight: FontWeight.w400
+                    fontSize: 16,
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w400
                 ),
               ),
               SizedBox(height: 10),
-
-              // Toggle Switch for showing plate number
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -63,7 +79,7 @@ class _ContactPageState extends State<ContactPage> {
                       value: showPlateNumber,
                       onChanged: (value) {
                         setState(() {
-                          showPlateNumber = value; // Update the toggle state
+                          showPlateNumber = value;
                         });
                         _updateShowPlateNumber(value);
                       },
@@ -71,10 +87,7 @@ class _ContactPageState extends State<ContactPage> {
                   ),
                 ],
               ),
-
               SizedBox(height: 50),
-
-              // Instructional text
               Text(
                 "Someone’s car blocking you?\nType the car plate number below to contact them!",
                 textAlign: TextAlign.center,
@@ -85,8 +98,6 @@ class _ContactPageState extends State<ContactPage> {
                 ),
               ),
               SizedBox(height: 40),
-
-              // Text Field for car plate number
               TextField(
                 controller: carPlateController,
                 decoration: InputDecoration(
@@ -94,7 +105,6 @@ class _ContactPageState extends State<ContactPage> {
                   labelText: 'Enter car plate number',
                 ),
                 onChanged: (value) {
-                  // Convert to uppercase and remove invalid characters
                   String formattedValue = value.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
                   carPlateController.value = TextEditingValue(
                     text: formattedValue,
@@ -103,8 +113,6 @@ class _ContactPageState extends State<ContactPage> {
                 },
               ),
               SizedBox(height: 30),
-
-              // Submit Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -136,21 +144,14 @@ class _ContactPageState extends State<ContactPage> {
     );
   }
 
-  // Update the Firestore document for showing plate number
   Future<void> _updateShowPlateNumber(bool value) async {
-    // Get the current user's ID
     String uid = FirebaseAuth.instance.currentUser!.uid;
 
-    // Update the 'show' field in Firestore
+    // Update the 'show' field in the 'Users' document
     await FirebaseFirestore.instance
-        .collection('CarPlateNumbers')
-        .where('userId', isEqualTo: uid) // Ensure you are updating the correct document
-        .get()
-        .then((snapshot) {
-      for (var doc in snapshot.docs) {
-        doc.reference.update({'show': value});
-      }
-    });
+        .collection('Users')
+        .doc(uid)
+        .update({'show': value});
   }
 
   Future<void> _findOwnerContact(String carPlateNumber, BuildContext context) async {
@@ -159,21 +160,20 @@ class _ContactPageState extends State<ContactPage> {
       QuerySnapshot carPlateQuerySnapshot = await FirebaseFirestore.instance
           .collection('CarPlateNumbers')
           .where('plateNumber', isEqualTo: carPlateNumber)
-          .where('show', isEqualTo: true) // Only get documents where show is true
           .get();
 
       if (carPlateQuerySnapshot.docs.isNotEmpty) {
         DocumentSnapshot carPlateDoc = carPlateQuerySnapshot.docs.first;
         String userId = carPlateDoc['userId'];
 
-        // Fetch the user details from the Users collection using the userId
+        // Fetch the user details from the Users collection using the userId and check if show is true
         DocumentSnapshot userSnapshot = await FirebaseFirestore.instance.collection('Users').doc(userId).get();
 
-        if (userSnapshot.exists) {
+        if (userSnapshot.exists && userSnapshot['show'] == true) {
           String ownerContact = userSnapshot['contact'] ?? 'No contact info available';
-          _showCallDialog(context, ownerContact); // Show the contact info dialog
+          _showCallDialog(context, ownerContact);
         } else {
-          _showDialog(context, "Error", "User not found for the given car plate number.");
+          _showDialog(context, "Error", "User does not have their contact info visible.");
         }
       } else {
         _showDialog(context, "Error", "No user found for car plate number: $carPlateNumber.");
@@ -183,7 +183,6 @@ class _ContactPageState extends State<ContactPage> {
     }
   }
 
-  // Show a dialog to call the owner's phone number
   void _showCallDialog(BuildContext context, String phoneNumber) {
     showDialog(
       context: context,
@@ -193,13 +192,12 @@ class _ContactPageState extends State<ContactPage> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop(); // Close the dialog
+              Navigator.of(context).pop();
             },
             child: Text("Cancel"),
           ),
           TextButton(
             onPressed: () async {
-              // Attempt to launch the phone dialer
               final Uri launchUri = Uri(
                 scheme: 'tel',
                 path: phoneNumber,
@@ -217,7 +215,6 @@ class _ContactPageState extends State<ContactPage> {
     );
   }
 
-  // Helper function to show dialog
   void _showDialog(BuildContext context, String title, String message) {
     showDialog(
       context: context,
