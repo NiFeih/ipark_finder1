@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 
 class InboxPage extends StatefulWidget {
   @override
@@ -11,19 +12,18 @@ class _InboxPageState extends State<InboxPage> {
   final FirebaseAuth auth = FirebaseAuth.instance;
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // No specific background color set, will inherit default color
       body: Column(
         children: [
-          // Title centered at the top
           Padding(
-            padding: const EdgeInsets.only(top: 40.0, bottom: 16.0), // Increased top padding
+            padding: const EdgeInsets.only(top: 40.0, bottom: 16.0),
             child: Text(
               "Inbox",
               style: TextStyle(
-                fontSize: 32, // Increased font size
+                fontSize: 32,
                 fontWeight: FontWeight.bold,
                 color: Colors.black,
               ),
@@ -58,7 +58,7 @@ class _InboxPageState extends State<InboxPage> {
                     final read = notification['read'];
 
                     return Card(
-                      color: read ? Colors.white : Colors.grey[300],
+                      color: read ? Colors.grey[300] : Colors.white, // Grey if read, white if unread
                       child: ListTile(
                         title: Text(title),
                         subtitle: Text(
@@ -101,11 +101,14 @@ class _InboxPageState extends State<InboxPage> {
       return firestore
           .collection('Notifications')
           .where('uid', isEqualTo: user.uid)
+          .orderBy('timestamp', descending: true) // Explicitly set descending order
           .snapshots();
     } else {
       return Stream.empty();
     }
   }
+
+
 }
 
 class NotificationDetailPage extends StatelessWidget {
@@ -139,7 +142,7 @@ class NotificationDetailPage extends StatelessWidget {
             ),
             SizedBox(height: 8),
             Text(
-              "Sent on: ${timestamp.toLocal()}",
+              "Sent on: ${DateFormat('MMMM dd, yyyy \'at\' hh:mm:ss a').format(timestamp.add(Duration(hours: 8)))}",
               style: TextStyle(color: Colors.grey),
             ),
             SizedBox(height: 16),
