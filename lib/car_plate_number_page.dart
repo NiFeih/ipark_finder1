@@ -15,13 +15,41 @@ class _CarPlateNumberPageState extends State<CarPlateNumberPage> {
 
   final String? userId = FirebaseAuth.instance.currentUser?.uid;
 
-  void _deleteCarPlate(String docId) {
+  void _deleteCarPlate(String docId, String carPlateNumber) async {
+    // Check if user has more than one car plate number
+    QuerySnapshot userCarPlates = await carPlateCollection
+        .where('userId', isEqualTo: userId)
+        .get();
+
+    if (userCarPlates.docs.length <= 1) {
+      // Show warning dialog if this is the only car plate number
+      showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: Text("Cannot Delete"),
+            content: Text("You must have at least one car plate number."),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: Text("OK"),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
+
+    // Show confirmation dialog to delete car plate number
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: Text("Delete Car Plate Number?"),
-          content: Text("Are you sure you want to delete this car plate number?"),
+          content: Text("Are you sure you want to delete $carPlateNumber?"), // Update content
           actions: [
             TextButton(
               onPressed: () {
@@ -50,6 +78,8 @@ class _CarPlateNumberPageState extends State<CarPlateNumberPage> {
     );
   }
 
+
+
   void _editCarPlate(String docId, String currentPlateNumber) {
     TextEditingController _controller = TextEditingController(text: currentPlateNumber);
 
@@ -62,11 +92,10 @@ class _CarPlateNumberPageState extends State<CarPlateNumberPage> {
             controller: _controller,
             decoration: InputDecoration(labelText: "Car Plate Number"),
             onChanged: (value) {
-              // Format input: Allow only uppercase letters and numbers, remove symbols and spaces
               String formattedValue = value.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
               _controller.value = TextEditingValue(
                 text: formattedValue,
-                selection: TextSelection.collapsed(offset: formattedValue.length), // Keep cursor at the end
+                selection: TextSelection.collapsed(offset: formattedValue.length),
               );
             },
           ),
@@ -76,21 +105,17 @@ class _CarPlateNumberPageState extends State<CarPlateNumberPage> {
                 String newPlateNumber = _controller.text.trim();
 
                 if (newPlateNumber.isNotEmpty) {
-                  // Check if the new plate number already exists in Firestore, including the current user's entry
                   QuerySnapshot existingPlateNumbers = await carPlateCollection
                       .where('plateNumber', isEqualTo: newPlateNumber)
-                      .get(); // Check for all users
+                      .get();
 
-                  // Check if the document ID matches the one being edited to allow the same number
                   bool exists = existingPlateNumbers.docs.any((doc) => doc.id != docId);
 
                   if (exists) {
-                    // Show error if plate number already exists
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text("This car plate number already exists.")),
                     );
                   } else {
-                    // Update the car plate number
                     carPlateCollection.doc(docId).update({
                       'plateNumber': newPlateNumber,
                     }).then((_) {
@@ -124,10 +149,6 @@ class _CarPlateNumberPageState extends State<CarPlateNumberPage> {
     );
   }
 
-
-
-
-
   void _showClampedWarning() {
     showDialog(
       context: context,
@@ -148,30 +169,46 @@ class _CarPlateNumberPageState extends State<CarPlateNumberPage> {
     );
   }
 
+  void _showInstructions() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("How to Use"),
+          content: Text(
+            "• To edit a car plate number, swipe the item left and select 'Edit'.\n"
+                "• To delete a car plate number, swipe the item left and select 'Delete'.\n"
+                "• If a car is clamped, the plate number will appear in red with 'Clamped' appended.",
+              style: TextStyle(fontSize: 16)),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: Text("Car Plate Numbers"),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.info_outline),
+            onPressed: _showInstructions,
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: <Widget>[
-            SizedBox(height: 40), // Spacer to bring the title lower
-            Row(
-              children: [
-                IconButton(
-                  icon: Icon(Icons.arrow_back, color: Colors.purple),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-                Container(
-                  padding: EdgeInsets.only(left: 45.0), // Add padding to shift title slightly to the left
-                  child: Text(
-                    "Car Plate Numbers",
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 0), // Additional space below the title
             userId == null
                 ? Center(child: Text("No user logged in"))
                 : Expanded(
@@ -197,6 +234,8 @@ class _CarPlateNumberPageState extends State<CarPlateNumberPage> {
                       final carPlateNumber = carPlateDoc['plateNumber'];
                       final docId = carPlateDoc.id;
                       final bool isLocked = carPlateDoc['lock'] ?? false;
+                      final displayPlateNumber =
+                      isLocked ? "$carPlateNumber (Clamped)" : carPlateNumber;
 
                       return Slidable(
                         key: ValueKey(docId),
@@ -219,12 +258,13 @@ class _CarPlateNumberPageState extends State<CarPlateNumberPage> {
                                 if (isLocked) {
                                   _showClampedWarning();
                                 } else {
-                                  _deleteCarPlate(docId);
+                                  _deleteCarPlate(docId, carPlateNumber); // Pass carPlateNumber here
                                 }
                               },
                               icon: Icons.delete,
                               label: 'Delete',
                             ),
+
                           ],
                         ),
                         child: Card(
@@ -232,7 +272,7 @@ class _CarPlateNumberPageState extends State<CarPlateNumberPage> {
                           color: isLocked ? Colors.red : Colors.white,
                           child: ListTile(
                             title: Text(
-                              carPlateNumber,
+                              displayPlateNumber,
                               style: TextStyle(
                                 color: isLocked ? Colors.white : Colors.black,
                               ),

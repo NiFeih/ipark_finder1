@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart'; // Import this for Clipboard
 
 class ContactUsPage extends StatelessWidget {
   // Method to open phone dialer
@@ -20,6 +21,11 @@ class ContactUsPage extends StatelessWidget {
     } else {
       throw 'Could not launch $url';
     }
+  }
+
+  // Method to copy email to clipboard
+  void _copyToClipboard(String email) {
+    Clipboard.setData(ClipboardData(text: email));
   }
 
   @override
@@ -49,18 +55,32 @@ class ContactUsPage extends StatelessWidget {
                 ),
               ],
             ),
-            SizedBox(height: 40),
+            SizedBox(height: 20),
 
-            // AFM Label
+            // AFM Label and Level
             Center(
-              child: Text(
-                "Administration & Facilities Management",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.purple,
-                ),
+              child: Column(
+                children: [
+                  Text(
+                    "Admin & Facilities Management",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.purple,
+                    ),
+                  ),
+                  SizedBox(height: 5),
+                  Text(
+                    "Level 2",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 25,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black,
+                    ),
+                  ),
+                ],
               ),
             ),
             SizedBox(height: 40),
@@ -72,17 +92,17 @@ class ContactUsPage extends StatelessWidget {
                 SizedBox(width: 10),
                 Expanded(
                   child: GestureDetector(
-                    onTap: () => _launchPhone("016-4108163"),
+                    onTap: () => _launchPhone("046310138"),
                     child: Text.rich(
                       TextSpan(
                         text: "Helpdesk:\n",
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                         children: [
                           TextSpan(
-                            text: "016-4108163",
+                            text: "046310138",
                             style: TextStyle(
                               fontWeight: FontWeight.normal,
-                              color: Colors.blue, // Color to indicate it's clickable
+                              color: Colors.blue,
                               decoration: TextDecoration.underline,
                             ),
                           ),
@@ -102,17 +122,24 @@ class ContactUsPage extends StatelessWidget {
                 SizedBox(width: 10),
                 Expanded(
                   child: GestureDetector(
-                    onTap: () => _launchEmail("afm@newintiedu.my"),
+                    onTap: () => _launchEmail("_iicp.afm@newinti.edu.my"),
+                    onLongPress: () {
+                      _copyToClipboard("_iicp.afm@newinti.edu.my");
+                      // Optionally show a snackbar to inform the user
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Email copied to clipboard!")),
+                      );
+                    },
                     child: Text.rich(
                       TextSpan(
                         text: "Email:\n",
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                         children: [
                           TextSpan(
-                            text: "afm@newintiedu.my",
+                            text: "_iicp.afm@newinti.edu.my",
                             style: TextStyle(
                               fontWeight: FontWeight.normal,
-                              color: Colors.blue, // Color to indicate it's clickable
+                              color: Colors.blue,
                               decoration: TextDecoration.underline,
                             ),
                           ),
@@ -138,7 +165,7 @@ class ContactUsPage extends StatelessWidget {
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       children: [
                         TextSpan(
-                          text: "Monday to Friday\n8:00 AM to 5:00 PM\n*Except Public Holidays",
+                          text: "Monday to Friday\n8:00 AM to 6:00 PM\n*Except Public Holidays and Weekends",
                           style: TextStyle(fontWeight: FontWeight.normal),
                         ),
                       ],

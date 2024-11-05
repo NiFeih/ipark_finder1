@@ -17,6 +17,23 @@ class ParkingData {
   static Map<String, Map<String, dynamic>> parkingLots = {}; // Keep this structure
   static Map<String, Map<String, double>> graph = {}; // Graph representation
 
+  // Helper method to calculate the centroid of a polygon
+  static LatLng calculateCentroid(List<LatLng> points) {
+    double latitudeSum = 0;
+    double longitudeSum = 0;
+
+    for (var point in points) {
+      latitudeSum += point.latitude;
+      longitudeSum += point.longitude;
+    }
+
+    double centroidLat = latitudeSum / points.length;
+    double centroidLng = longitudeSum / points.length;
+
+    return LatLng(centroidLat, centroidLng);
+  }
+
+// Update loadGeoJson to store centroid instead of the first point
   static Future<bool> loadGeoJson(Function(String) showDialogCallback) async {
     try {
       // Load GeoJSON files
@@ -32,7 +49,6 @@ class ParkingData {
 
       CollectionReference parkingCollection = FirebaseFirestore.instance.collection('ParkingLot');
 
-      // Parse parking lots and initialize polygons and parkingLots map
       for (var feature in parkingFeatures) {
         final List coordinates = feature['geometry']['coordinates'][0];
         List<LatLng> points = coordinates.map<LatLng>((coord) {
@@ -46,16 +62,13 @@ class ParkingData {
         bool isVacant = false;
         if (document.exists) {
           isVacant = document.get('vacant');
-          // Set color based on vacancy status
-          if (parkingLotName == "OKU1" || parkingLotName == "OKU2") {
-            polygonColor = isVacant ? Colors.blue.withOpacity(0.5) : Colors.red.withOpacity(0.5);
-          } else {
-            polygonColor = isVacant ? Colors.green.withOpacity(0.5) : Colors.red.withOpacity(0.5);
-          }
+          polygonColor = isVacant ? Colors.green.withOpacity(0.5) : Colors.red.withOpacity(0.5);
         } else {
-          // Default color if the document doesn't exist
           polygonColor = Colors.grey.withOpacity(0.5);
         }
+
+        // Calculate the centroid of the parking lot
+        LatLng centroid = calculateCentroid(points);
 
         parkingLotPolygons.add(
           Polygon(
@@ -71,13 +84,11 @@ class ParkingData {
           ),
         );
 
-        print('Parsed points : $points');
-
-        // **Ensure correct structure**: location (LatLng) and vacant (bool)
+        // Store centroid as 'location' in parkingLots
         parkingLots[parkingLotName] = {
-          'location': points[0],  // Storing LatLng as 'location'
-          'vacant': isVacant,      // Storing vacancy status as 'vacant'
-          'coordinates': points     // List of LatLng points representing the corners
+          'location': centroid, // Using centroid
+          'vacant': isVacant,
+          'coordinates': points
         };
       }
 
@@ -108,9 +119,27 @@ class ParkingData {
       return true; // Return true to indicate polygons were updated
     } catch (e) {
       print("Error in loadGeoJson: $e");
-      return false; // Return false to indicate failure
+      return false;
     }
   }
+
+// Update initializeGraph to use centroid
+  static void initializeGraph() {
+    print("Initializing graph...");
+    entrances.forEach((entranceName, entranceLatLng) {
+      graph[entranceName] = {};
+      parkingLots.forEach((lotName, lotData) {
+        if (lotData.containsKey('location') && lotData.containsKey('vacant')) {
+          LatLng centroid = lotData['location']; // Use centroid
+          double distance = _calculateDistance(entranceLatLng, centroid);
+          graph[entranceName]![lotName] = distance;
+          graph[lotName] = {entranceName: distance};
+        }
+      });
+    });
+    print("Graph initialized: $graph");
+  }
+
 
 
 
@@ -219,23 +248,7 @@ class ParkingData {
     }
   }
 
-  static void initializeGraph() {
-    print("Initializing graph...");
-    entrances.forEach((entranceName, entranceLatLng) {
-      graph[entranceName] = {};
-      parkingLots.forEach((lotName, lotData) {
-        // Ensure correct access to 'location' and 'vacant'
-        if (lotData.containsKey('location') && lotData.containsKey('vacant')) {
-          LatLng lotLatLng = lotData['location'];
-          double distance = _calculateDistance(entranceLatLng, lotLatLng);
-          graph[entranceName]![lotName] = distance;
-          // Symmetric edge in the graph
-          graph[lotName] = {entranceName: distance};
-        }
-      });
-    });
-    print("Graph initialized: $graph");
-  }
+
 
   // Haversine formula to calculate distance between two LatLng points
   static double _calculateDistance(LatLng point1, LatLng point2) {

@@ -54,6 +54,7 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _confirmPasswordVisible = false;
 
   Timer? _verificationTimer; // Timer for email verification expiration
+  Timer? _checkVerificationTimer; // Timer for checking email verification
 
   Future<void> handleRegister() async {
     String name = nameController.text.trim();
@@ -70,8 +71,8 @@ class _RegisterPageState extends State<RegisterPage> {
     } else if (password != confirmPassword) {
       _showDialog("Error", "Passwords do not match");
       return;
-    } else if (!email.endsWith('@student.newinti.edu.my')) {
-      _showDialog("Error", "Please use a valid student email address.");
+     } else if (!email.endsWith('@student.newinti.edu.my')) {
+       _showDialog("Error", "Please use a valid student email address.");
       return; // Exit the function if the email is not valid
     }
 
@@ -97,6 +98,10 @@ class _RegisterPageState extends State<RegisterPage> {
         password: password,
       );
 
+      // Cancel any existing timers for verification
+      _verificationTimer?.cancel();
+      _checkVerificationTimer?.cancel();
+
       // Send a verification email
       User? user = userCredential.user;
       await user?.sendEmailVerification();
@@ -107,7 +112,7 @@ class _RegisterPageState extends State<RegisterPage> {
         MaterialPageRoute(builder: (context) => VerificationWaitingPage()),
       );
 
-      // Start the timer for 5 minutes
+      // Start the timer for 5 minutes (latest verification link only)
       _verificationTimer = Timer(Duration(minutes: 5), () async {
         await user?.delete(); // Delete the user if not verified
         _showDialog("Timeout", "Your email verification link has expired. Please register again.");
@@ -119,7 +124,6 @@ class _RegisterPageState extends State<RegisterPage> {
       _showDialog("Error", e.toString());
     }
   }
-
 
   void _showDialog(String title, String content) {
     showDialog(
@@ -138,7 +142,10 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Future<void> _checkEmailVerified(User user, String name, String contact, String carPlate, String email, String studentID) async {
-    Timer.periodic(Duration(seconds: 5), (timer) async {
+    // Cancel any existing check timer to prevent duplicate checks
+    _checkVerificationTimer?.cancel();
+
+    _checkVerificationTimer = Timer.periodic(Duration(seconds: 5), (timer) async {
       await user.reload(); // Reload user state
       user = _auth.currentUser!; // Get the updated user
 
@@ -172,7 +179,7 @@ class _RegisterPageState extends State<RegisterPage> {
         Future.delayed(Duration(seconds: 5), () {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => LoginPage()), // Navigate to LoginPage using pushReplacement
+            MaterialPageRoute(builder: (context) => LoginPage()),
           );
         });
       }
@@ -182,6 +189,7 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   void dispose() {
     _verificationTimer?.cancel(); // Cancel the timer when the widget is disposed
+    _checkVerificationTimer?.cancel(); // Cancel the email check timer
     super.dispose();
   }
 
@@ -193,18 +201,15 @@ class _RegisterPageState extends State<RegisterPage> {
         child: SingleChildScrollView(
           child: Column(
             children: [
-
-              SizedBox(height: 40), // Increased spacer for lower positioning
-              // Back button and Title
+              SizedBox(height: 40),
               Row(
                 children: [
                   IconButton(
                     icon: Icon(Icons.arrow_back, color: Colors.purple),
-                    onPressed: () => Navigator.of(context).pop(), // Go back on press
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
-                  // Container for left padding on the title
                   Container(
-                    padding: EdgeInsets.only(left: 100.0), // Slight left padding
+                    padding: EdgeInsets.only(left: 100.0),
                     child: Text(
                       "Register",
                       style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
@@ -212,7 +217,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                 ],
               ),
-              SizedBox(height: 40), // Spacer to move the content lower
+              SizedBox(height: 40),
               _buildTextField(nameController, "Full Name", Icons.person, r'[A-Za-z ]'),
               SizedBox(height: 16.0),
               _buildTextField(contactController, "Contact Number", Icons.phone, r'[0-9]', keyboardType: TextInputType.phone),

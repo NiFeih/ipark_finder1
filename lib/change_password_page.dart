@@ -16,7 +16,7 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   bool _newPasswordVisible = false;
   bool _confirmPasswordVisible = false;
 
-  Future<void> changePassword(String oldPassword, String newPassword) async {
+  Future<bool> changePassword(String oldPassword, String newPassword) async {
     User? user = FirebaseAuth.instance.currentUser;
 
     if (user != null) {
@@ -30,10 +30,31 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
         await user.reauthenticateWithCredential(credential); // Re-authenticate
         await user.updatePassword(newPassword); // Change password
         print("Password changed successfully.");
+        return true; // Indicate success
       } catch (e) {
         print("Error changing password: $e");
+
+        // Dismiss the loading indicator
+        Navigator.of(context).pop();
+
+        // Show error message
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text("Error"),
+            content: Text("Old password is incorrect. Please try again."),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text("OK"),
+              ),
+            ],
+          ),
+        );
+        return false; // Indicate failure
       }
     }
+    return false; // In case user is null
   }
 
   void handleChangePassword() async {
@@ -60,12 +81,12 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       return;
     }
 
-    if (newPassword != confirmPassword) {
+    if (newPassword.length < 6) {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           title: Text("Error"),
-          content: Text("New passwords do not match."),
+          content: Text("New password must be at least 6 characters."),
           actions: [
             TextButton(
               onPressed: () {
@@ -79,6 +100,26 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       return;
     }
 
+    if (newPassword != confirmPassword) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text("Error"),
+          content: Text("New password and confirm password do not match."),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text("OK"),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // Show loading indicator
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -87,28 +128,34 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       ),
     );
 
-    await changePassword(oldPassword, newPassword);
+    // Attempt to change password
+    bool success = await changePassword(oldPassword, newPassword);
 
-    Navigator.of(context).pop(); // Dismiss the loading indicator
+    if (success) {
+      // Dismiss the loading indicator
+      Navigator.of(context).pop();
 
-    // Show success message
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Success"),
-        content: Text("Password changed successfully."),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pop(); // Navigate back to previous page
-            },
-            child: Text("OK"),
-          ),
-        ],
-      ),
-    );
+      // Show success message
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text("Success"),
+          content: Text("Password changed successfully."),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).pop(); // Navigate back to previous page
+              },
+              child: Text("OK"),
+            ),
+          ],
+        ),
+      );
+    }
   }
+
+
 
   @override
   Widget build(BuildContext context) {

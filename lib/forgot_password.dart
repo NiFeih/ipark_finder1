@@ -67,7 +67,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               Icon(Icons.email, size: 80, color: Colors.purple),
               SizedBox(height: 20),
               Text(
-                "A password reset email has been sent to ${emailController.text}. Please check your inbox.",
+                "A password reset email has been sent to ${emailController.text}. Please check your inbox. If you do not receive an email it means your email is no registered",
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 16),
               ),

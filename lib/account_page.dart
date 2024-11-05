@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
 import 'package:cloud_firestore/cloud_firestore.dart'; // Firestore for the database
+import 'package:flutter/services.dart';
+
 
 class ProfilePage extends StatefulWidget {
   @override
@@ -163,12 +165,17 @@ class _ProfilePageState extends State<ProfilePage> {
             Divider(),
 
             // Display Phone Number with Edit Icon
+            // Display Phone Number with Edit Icon
             Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: phoneController,
                     focusNode: phoneFocusNode,
+                    keyboardType: TextInputType.number, // Set keyboard to numeric
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly // Allow only digits
+                    ],
                     decoration: InputDecoration(
                       labelText: "Phone Number",
                       labelStyle: TextStyle(fontSize: 20),
@@ -195,6 +202,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
             Divider(),
+
 
             // Show Save and Cancel buttons when editing
             if (showSaveCancelButtons) ...[
